@@ -615,7 +615,7 @@ return function(mod)
   local function smartAlloc(data, recipients, pool)
     local alloc={}
     pool=math.max(0,math.floor(pool or 0))
-    if pool==0 or #recipients==0 then return alloc end
+    if pool==0 or #recipients==0 then return alloc,0 end
 
     -- Snapshot the lowest level before any award is applied. A recipient that
     -- levels up during this award stays in the chosen group; already-higher
@@ -631,28 +631,54 @@ return function(mod)
     end
     local each=math.floor(pool/#group)
     local rem=pool-each*#group
-    for i,mon in ipairs(group) do
-      alloc[mon]=each+(i<=rem and 1 or 0)
+    for _,mon in ipairs(group) do
+      alloc[mon]=each
     end
-    return alloc
+    return alloc,rem
   end
 
-  local function sharedExpSummary(battle, recipients, total, insertAfter)
-    recipients=math.max(0,math.floor(recipients or 0))
-    total=math.max(0,math.floor(total or 0))
-    if recipients==0 or total==0 or not battle or not battle.sayNext then return end
+  local function equalAlloc(recipients,pool)
+    local alloc={}
+    pool=math.max(0,math.floor(pool or 0))
+    if pool==0 or #recipients==0 then return alloc,0 end
+    local each=math.floor(pool/#recipients)
+    local rem=pool-each*#recipients
+    for _,mon in ipairs(recipients) do alloc[mon]=each end
+    return alloc,rem
+  end
+
+  local function sharedExpSummary(battle, awards, insertAfter)
+    if not awards or #awards==0 or not battle or not battle.sayNext then return end
     -- Experience.apply queues level-up text immediately through sayNext. When
-    -- the total is only known after applying every share, temporarily restore
+    -- the awards are only known after applying every share, temporarily restore
     -- the insertion cursor captured before those awards so this summary is
     -- displayed first, then advance it past every row already queued.
     local queuedThrough=battle.nextInsert
     if insertAfter~=nil then battle.nextInsert=insertAfter end
-    if recipients==1 then
-      battle:sayNext(("1 POKéMON gained\n%d EXP!"):format(total))
-    else
-      battle:sayNext(("%d POKéMON shared\n%d EXP!"):format(recipients,total))
+    local same=true
+    local each=math.max(0,math.floor(awards[1].gained or 0))
+    for i=2,#awards do
+      if math.max(0,math.floor(awards[i].gained or 0))~=each then same=false break end
     end
-    if insertAfter~=nil then battle.nextInsert=(queuedThrough or insertAfter)+1 end
+    if #awards==1 then
+      battle:sayNext(("1 POKéMON gained\n%d EXP!"):format(each))
+    elseif same then
+      -- The amount shown is per Pokemon, not the sum of the shared group.
+      battle:sayNext(("%d POKéMON gained\n%d EXP!"):format(#awards,each))
+    else
+      for _,award in ipairs(awards) do
+        local mon=award.mon
+        local def=mon and battle.data and battle.data.pokemon
+          and battle.data.pokemon[mon.species]
+        local name=(mon and mon.nickname) or (def and def.name) or "POKéMON"
+        battle:sayNext(("%s gained\n%d EXP!"):format(
+          name,math.max(0,math.floor(award.gained or 0))))
+      end
+    end
+    if insertAfter~=nil then
+      local inserted=(battle.nextInsert or insertAfter)-insertAfter
+      battle.nextInsert=(queuedThrough or insertAfter)+inserted
+    end
   end
 
   mod.hooks:wrap("battle.exp_award", function(next, ctx)
@@ -669,54 +695,74 @@ return function(mod)
     local others=eligibleNonParticipants(battle,participantSet)
     if #others==0 then return next(ctx) end
 
-    -- Participants divide one half equally.  For example, two participants
-    -- each receive 25%, regardless of which one landed the final blow. Keep
-    -- every participant's native gained-EXP row together at the front, while
-    -- leaving their level-up rows behind it. This gives the shared summary a
-    -- stable insertion point between gained EXP and resulting level changes.
+    local Experience=require("src.battle.Experience")
+    local enemy=battle.enemy and battle.enemy.mon
+    local enemyDef=battle.enemy and battle.enemy.def
+    local isTrainer=battle.kind=="trainer"
+    local sharedAllocation=nil
+    local participantRemainder=0
+    if enemy and enemyDef then
+      local pool=Experience.gainFor(
+        enemyDef,enemy.level,isTrainer,2,false,battle.data.constants)
+      if mode=="SMART" then
+        sharedAllocation,participantRemainder=smartAlloc(battle.data,others,pool)
+      else
+        sharedAllocation,participantRemainder=equalAlloc(others,pool)
+      end
+    end
+
+    -- Participants divide one half equally. Each participant completes the
+    -- native EXP -> level/stats -> move-learning flow before the next one.
     local participantSplit=2*math.max(1,tonumber(ctx.participants) or #ctx.alive)
-    local participantQueueStart=battle.nextInsert or 0
-    local participantAnnouncements=0
-    for _,mon in ipairs(ctx.alive or {}) do
-      if (mon.level or 0)<100 then
-        local before=battle.nextInsert or participantQueueStart
-        ctx.applyShare(mon,participantSplit,true)
-        local after=battle.nextInsert or before
-        if after>before and battle.queue then
-          local announcement=table.remove(battle.queue,before+1)
-          battle.nextInsert=after-1
-          participantAnnouncements=participantAnnouncements+1
-          table.insert(battle.queue,
-            participantQueueStart+participantAnnouncements,announcement)
-          battle.nextInsert=battle.nextInsert+1
+    local remainderRecipient=nil
+    if participantRemainder>0 then
+      local active=battle.player and battle.player.mon
+      if active and participantSet[active] and (active.level or 0)<100 then
+        remainderRecipient=active
+      else
+        for _,mon in ipairs(ctx.alive or {}) do
+          if (mon.level or 0)<100 then remainderRecipient=mon break end
         end
       end
     end
-    local summaryInsert=participantQueueStart+participantAnnouncements
+    for _,mon in ipairs(ctx.alive or {}) do
+      if (mon.level or 0)<100 then
+        if mon==remainderRecipient and enemy and enemyDef then
+          local base=Experience.gainFor(enemyDef,enemy.level,isTrainer,
+            participantSplit,mon.traded,battle.data.constants)
+          forcedExp[mon]=base+participantRemainder
+        end
+        ctx.applyShare(mon,participantSplit,true)
+        forcedExp[mon]=nil
+      end
+    end
+    -- Shared summary belongs after every participant's complete native flow,
+    -- but before any level-up rows generated by the shared recipients.
+    local summaryInsert=battle.nextInsert or 0
 
     if mode=="ACTIVE" then
       local split=2*#others
-      local recipients,total=0,0
+      local awards={}
       for _,mon in ipairs(others) do
-        local before=tonumber(mon.exp) or 0
-        ctx.applyShare(mon,split,nil)
-        local gained=math.max(0,(tonumber(mon.exp) or before)-before)
-        if gained>0 then recipients=recipients+1; total=total+gained end
+        local amount=(sharedAllocation and sharedAllocation[mon]) or 0
+        if amount>0 then
+          local before=tonumber(mon.exp) or 0
+          forcedExp[mon]=amount
+          ctx.applyShare(mon,split,nil)
+          forcedExp[mon]=nil
+          local gained=math.max(0,(tonumber(mon.exp) or before)-before)
+          if gained>0 then awards[#awards+1]={mon=mon,gained=gained} end
+        end
       end
-      sharedExpSummary(battle,recipients,total,summaryInsert)
+      sharedExpSummary(battle,awards,summaryInsert)
       return
     end
 
     -- SMART: same 50% pool, directed at the lowest levels until equalized.
-    local Experience=require("src.battle.Experience")
-    local enemy=battle.enemy and battle.enemy.mon
-    local enemyDef=battle.enemy and battle.enemy.def
     if not enemy or not enemyDef then return end
-    local isTrainer=battle.kind=="trainer"
-    local pool=Experience.gainFor(enemyDef,enemy.level,isTrainer,2,false,battle.data.constants)
-    local alloc=smartAlloc(battle.data,others,pool)
+    local alloc=sharedAllocation or {}
     local statSplit=2*math.max(1,#others)
-    local recipients,total=0,0
+    local awards={}
     for _,mon in ipairs(others) do
       local amount=alloc[mon] or 0
       if amount>0 then
@@ -725,10 +771,10 @@ return function(mod)
         ctx.applyShare(mon,statSplit,nil)
         forcedExp[mon]=nil
         local gained=math.max(0,(tonumber(mon.exp) or before)-before)
-        if gained>0 then recipients=recipients+1; total=total+gained end
+        if gained>0 then awards[#awards+1]={mon=mon,gained=gained} end
       end
     end
-    sharedExpSummary(battle,recipients,total,summaryInsert)
+    sharedExpSummary(battle,awards,summaryInsert)
   end)
 
   -- ---------------- field/QoL hooks ----------------

@@ -2,7 +2,7 @@
 
 myQualityOfLife is a configurable quality-of-life mod pack designed to provide what I believe is the best way to experience Pokemon Gen 1 using Gen1Recomp. Every feature can be toggled on or off, so you are free to customize the experience however you prefer.
 
-Current stable version: **1.2.28**
+Current stable version: **1.2.31**
 
 ## Requirement
 
@@ -29,7 +29,7 @@ All features are disabled by default.
 - **Move Info**: adds Power and Accuracy to the Wide battle move selector while preserving the native Type and current/max PP display.
 
 Fainted Pokemon and level 100 Pokemon do not receive shared experience. Level-ups, stat increases, and learned moves still use the normal Gen1Recomp flow.
-Participant EXP messages are displayed first, followed by the shared-experience summary, and then any resulting level-up messages.
+Each participant completes its EXP, level-up, stat, and move-learning flow before the next participant. The shared summary then reports the per-Pokemon amount (for example, `2 POKEMON gained 25 EXP!`) before shared recipients begin their own level-up flows. Unequal awards are reported by Pokemon name.
 
 ### Cheats
 
