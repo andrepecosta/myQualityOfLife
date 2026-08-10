@@ -1,0 +1,19 @@
+{
+  "id": "deco_qol",
+  "name": "Deco QoL",
+  "version": "1.2.14",
+  "api": 2,
+  "entry": "main.lua",
+  "profile": "overhaul",
+  "category": "MECHANIC",
+  "game_version": ">=0.1.36 <2.0.0",
+  "priority": 100,
+  "dependencies": [],
+  "optional_dependencies": [],
+  "conflicts": [],
+  "permissions": [
+    "engine_internals"
+  ],
+  "affects_link": true,
+  "description": "Pacote QoL configur?vel para Pok?mon Gen 1 no Gen1Recomp, com Move Editor, op??es de batalha, EXP Share, corrida e melhorias de interface."
+}
