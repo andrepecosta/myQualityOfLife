@@ -5,7 +5,9 @@ return function(mod)
   local BATTLE_SCREEN = "PMEQoLBattle"
   local POKEMON_SCREEN = "PMEQoLPokemon"
   local MISC_SCREEN = "PMEQoLMisc"
+  local CHEATS_SCREEN = "PMEQoLCheats"
   local QUICK_HM_SCREEN = "PMEQoLQuickHM"
+  local QUICK_HM_HOTKEY_SCREEN = "PMEQoLQuickHMHotkey"
   local BAG_SORT_SCREEN = "PMEQoLBagSort"
   local MOVE_SCREEN = "PlayerMoveEditorMoves"
   local PICK_SCREEN = "PlayerMoveEditorPick"
@@ -25,19 +27,22 @@ return function(mod)
     always_crit = false,
     infinite_pp = false,
     always_catch = false,
+    exp_multiplier = "OFF",    -- OFF / 2X / 3X / 4X
     exp_share = "OFF",         -- OFF / ACTIVE (shown as GEN1) / SMART
     move_info = false,
     move_editor = "OFF",       -- TODOS / BASE / OFF
     forget_hm = false,
     unlimited_tm = false,
     quick_hm = "OFF",          -- OFF / ON / IGNORE
+    quick_hm_hotkey = "shift",
     bag_sort = "OFF",          -- OFF / NAME / QUANTITY / TYPE
     pikachu_evo = false,
   }
 
   local MISC_KEYS = { "fast_run", "auto_run", "instant_text", "itemfinder", "fast_center", "fast_save", "bag_sort" }
-  local BATTLE_KEYS = { "never_miss", "always_crit", "infinite_pp", "always_catch", "exp_share", "move_info" }
-  local POKEMON_KEYS = { "move_editor", "forget_hm", "unlimited_tm", "quick_hm", "pikachu_evo" }
+  local BATTLE_KEYS = { "exp_share", "move_info" }
+  local POKEMON_KEYS = { "forget_hm", "unlimited_tm", "quick_hm", "quick_hm_hotkey", "pikachu_evo" }
+  local CHEAT_KEYS = { "never_miss", "always_crit", "infinite_pp", "always_catch", "exp_multiplier", "move_editor" }
 
   local function get(key)
     return mod.save:get(key, DEFAULTS[key])
@@ -63,6 +68,7 @@ return function(mod)
     resetKeys(game, MISC_KEYS)
     resetKeys(game, BATTLE_KEYS)
     resetKeys(game, POKEMON_KEYS)
+    resetKeys(game, CHEAT_KEYS)
   end
 
   local function confirmReset(game,text,onConfirm)
@@ -85,6 +91,23 @@ return function(mod)
     idx = idx % #values + 1
     set(game, key, values[idx])
   end
+
+  local function hotkeyText(key)
+    key=tostring(key or "shift")
+    local names={
+      shift="SHIFT", lctrl="LEFT CTRL", rctrl="RIGHT CTRL",
+      lalt="LEFT ALT", ralt="RIGHT ALT", capslock="CAPS LOCK",
+      pageup="PAGE UP", pagedown="PAGE DOWN",
+    }
+    return names[key] or key:upper()
+  end
+
+  local BLOCKED_HOTKEYS={
+    up=true,down=true,left=true,right=true,w=true,a=true,s=true,d=true,
+    z=true,x=true,["return"]=true,space=true,backspace=true,escape=true,tab=true,
+    ["1"]=true,["2"]=true,["3"]=true,["4"]=true,["5"]=true,
+    f1=true,f2=true,f5=true,f10=true,
+  }
 
   -- Preserve the highlighted option when a settings screen is rebuilt.
   -- Values are more stable than row numbers because AUTO RUN can appear/disappear.
@@ -226,6 +249,7 @@ return function(mod)
         { label="BATTLE OPTIONS", value="battle" },
         { label="POKEMON", value="pokemon" },
         { label="MISC", value="misc" },
+        { label="CHEATS", value="cheats" },
         { label="RESET DEFAULT ALL", value="reset_all" },
       }
       local menu = mod.ui.ListMenu.new(game, "MOD OPTIONS", items, {
@@ -235,6 +259,7 @@ return function(mod)
           if item.value == "battle" then mod.ui.push(game,BATTLE_SCREEN)
           elseif item.value == "pokemon" then mod.ui.push(game,POKEMON_SCREEN)
           elseif item.value == "misc" then mod.ui.push(game,MISC_SCREEN)
+          elseif item.value == "cheats" then mod.ui.push(game,CHEATS_SCREEN)
           elseif item.value == "reset_all" then
             confirmReset(game,"Reset ALL options\nto defaults?",function()
               resetAll(game)
@@ -287,10 +312,6 @@ return function(mod)
   mod.content.screens:register(BATTLE_SCREEN, {
     new = function(game)
       local items = {
-        {label="NEVER MISS", right=boolText(get("never_miss")), value="never_miss"},
-        {label="ALWAYS CRIT", right=boolText(get("always_crit")), value="always_crit"},
-        {label="INFINITE PP", right=boolText(get("infinite_pp")), value="infinite_pp"},
-        {label="ALWAYS CATCH", right=boolText(get("always_catch")), value="always_catch"},
         {label="EXP SHARE", right=(get("exp_share")=="ACTIVE" and "GEN1" or tostring(get("exp_share"))), value="exp_share"},
         {label="MOVE INFO", right=boolText(get("move_info")), value="move_info"},
         {label="RESET DEFAULTS", value="reset"},
@@ -315,17 +336,21 @@ return function(mod)
   mod.content.screens:register(POKEMON_SCREEN, {
     new = function(game)
       local items = {
-        {label="MOVE EDITOR", right=tostring(get("move_editor")), value="move_editor"},
         {label="FORGET HM", right=boolText(get("forget_hm")), value="forget_hm"},
         {label="REUSABLE TMS", right=boolText(get("unlimited_tm")), value="unlimited_tm"},
         {label="QUICK HM", right=tostring(get("quick_hm")), value="quick_hm"},
-        {label="PIKACHU EVO", right=boolText(get("pikachu_evo")), value="pikachu_evo"},
-        {label="RESET DEFAULTS", value="reset"},
       }
+      if get("quick_hm")~="OFF" then
+        items[#items+1]={label="HM HOTKEY",right=hotkeyText(get("quick_hm_hotkey")),value="quick_hm_hotkey"}
+      end
+      items[#items+1]={label="PIKACHU EVO", right=boolText(get("pikachu_evo")), value="pikachu_evo"}
+      items[#items+1]={label="RESET DEFAULTS", value="reset"}
       local menu = mod.ui.ListMenu.new(game,"POKEMON OPTIONS",items,{
         onChoose=function(item,menu)
-          if item.value == "move_editor" then cycle(game,"move_editor",{"TODOS","BASE","OFF"})
-          elseif item.value == "quick_hm" then cycle(game,"quick_hm",{"OFF","ON","IGNORE"})
+          if item.value == "quick_hm" then cycle(game,"quick_hm",{"OFF","ON","IGNORE"})
+          elseif item.value == "quick_hm_hotkey" then
+            mod.ui.push(game,QUICK_HM_HOTKEY_SCREEN)
+            return
           elseif item.value == "reset" then
             confirmReset(game,"Reset POKEMON options\nto defaults?",function()
               resetKeys(game,POKEMON_KEYS)
@@ -337,6 +362,64 @@ return function(mod)
         end,
       })
       return restoreCursor(POKEMON_SCREEN, menu)
+    end,
+  })
+
+  mod.content.screens:register(QUICK_HM_HOTKEY_SCREEN, {
+    new=function(game)
+      local menu=mod.ui.ListMenu.new(game,"QUICK HM HOTKEY",{
+        {label="PRESS A KEY"},
+        {label="ESC TO CANCEL"},
+      },{ rows=2 })
+      menu.onKeyPressed=function(self,key)
+        if key=="escape" or key=="backspace" then
+          game.stack:pop()
+          return
+        end
+        if key=="lshift" or key=="rshift" then key="shift" end
+        if BLOCKED_HOTKEYS[key] then
+          self.items[1].label="KEY NOT AVAILABLE"
+          return
+        end
+        set(game,"quick_hm_hotkey",key)
+        game.stack:pop()
+        local parent=game.stack:top()
+        refresh(parent,game,POKEMON_SCREEN)
+      end
+      return menu
+    end,
+  })
+
+  mod.content.screens:register(CHEATS_SCREEN, {
+    new = function(game)
+      local items = {
+        {label="NEVER MISS", right=boolText(get("never_miss")), value="never_miss"},
+        {label="ALWAYS CRIT", right=boolText(get("always_crit")), value="always_crit"},
+        {label="INFINITE PP", right=boolText(get("infinite_pp")), value="infinite_pp"},
+        {label="ALWAYS CATCH", right=boolText(get("always_catch")), value="always_catch"},
+        {label="EXP MULTIPLIER", right=tostring(get("exp_multiplier")), value="exp_multiplier"},
+        {label="MOVE EDITOR", right=tostring(get("move_editor")), value="move_editor"},
+        {label="RESET DEFAULTS", value="reset"},
+      }
+      local menu = mod.ui.ListMenu.new(game,"CHEATS",items,{
+        onChoose=function(item,menu)
+          if item.value == "move_editor" then
+            cycle(game,"move_editor",{"TODOS","BASE","OFF"})
+          elseif item.value == "exp_multiplier" then
+            cycle(game,"exp_multiplier",{"OFF","2X","3X","4X"})
+          elseif item.value == "reset" then
+            confirmReset(game,"Reset CHEATS options\nto defaults?",function()
+              resetKeys(game,CHEAT_KEYS)
+              refresh(menu,game,CHEATS_SCREEN)
+            end)
+            return
+          else
+            toggle(game,item.value)
+          end
+          refresh(menu,game,CHEATS_SCREEN)
+        end,
+      })
+      return restoreCursor(CHEATS_SCREEN, menu)
     end,
   })
 
@@ -365,6 +448,29 @@ return function(mod)
       onSelect=function() mod.ui.push(game,MAIN_SCREEN) end,
     })
   end)
+
+  -- Configurable keyboard shortcut. It claims the key only during free
+  -- overworld control; everywhere else the engine receives its normal input.
+  local Game=require("src.core.Game")
+  local oldGameKeyPressed=Game.keypressed
+  Game.keypressed=function(self,key)
+    local configured=tostring(get("quick_hm_hotkey") or "shift")
+    local matches=(configured=="shift" and (key=="lshift" or key=="rshift"))
+                  or key==configured
+    if get("quick_hm")~="OFF" and matches then
+      local ow=self.overworld
+      local top=self.stack and self.stack:top()
+      local busy=not ow or top~=ow or ow.transitioning
+        or (ow.runner and ow.runner.isRunning and ow.runner:isRunning())
+        or (ow.scriptMoves and #ow.scriptMoves>0)
+        or ow.engaging or ow.emote
+      if not busy then
+        mod.ui.push(self,QUICK_HM_SCREEN)
+        return
+      end
+    end
+    return oldGameKeyPressed(self,key)
+  end
 
   -- ---------------- Move Editor (stable v1.1 behavior + filters/info) ----------------
   mod.content.screens:register(MOVE_SCREEN, {
@@ -485,18 +591,23 @@ return function(mod)
     end
   end)
 
-  -- Exact override used only by SMART recipients. Experience.apply still owns
-  -- level/stats/move-learn UI, so native level-up flow remains intact.
+  -- SMART may provide an exact per-mon award.  The optional cheat multiplier
+  -- is applied once to that amount or to the engine's normal calculated gain.
+  -- Experience.apply still owns stats, levels, move learning and battle text.
   mod.hooks:wrap("exp.gain", function(next, ctx)
     local v = ctx and ctx.mon and forcedExp[ctx.mon]
-    if v ~= nil then return math.max(0,math.floor(v)) end
-    return next(ctx)
+    local gained=v ~= nil and v or next(ctx)
+    local setting=get("exp_multiplier")
+    local multiplier=tonumber(tostring(setting):match("^(%d+)X$")) or 1
+    return math.max(0,math.floor((tonumber(gained) or 0)*multiplier))
   end)
 
-  local function eligibleOthers(battle, main)
+  local function eligibleNonParticipants(battle, participants)
     local out={}
     for _,mon in ipairs((battle and battle.game and battle.game.save and battle.game.save.party) or {}) do
-      if mon ~= main and (mon.hp or 0)>0 and (mon.level or 0)<100 then out[#out+1]=mon end
+      if not participants[mon] and (mon.hp or 0)>0 and (mon.level or 0)<100 then
+        out[#out+1]=mon
+      end
     end
     return out
   end
@@ -559,9 +670,9 @@ return function(mod)
     total=math.max(0,math.floor(total or 0))
     if recipients==0 or total==0 or not battle or not battle.sayNext then return end
     if recipients==1 then
-      battle:sayNext(("1 POK?MON gained\n%d EXP!"):format(total))
+      battle:sayNext(("1 POKéMON gained\n%d EXP!"):format(total))
     else
-      battle:sayNext(("%d POK?MON shared\n%d EXP!"):format(recipients,total))
+      battle:sayNext(("%d POKéMON shared\n%d EXP!"):format(recipients,total))
     end
   end
 
@@ -569,17 +680,22 @@ return function(mod)
     local mode=get("exp_share")
     if mode=="OFF" or not ctx or not ctx.battle then return next(ctx) end
     local battle=ctx.battle
-    local main=battle.player and battle.player.mon
-    if not main or (main.hp or 0)<=0 then return next(ctx) end
+    local participantSet={}
+    for _,mon in ipairs(ctx.alive or {}) do participantSet[mon]=true end
 
-    -- With no other eligible party member there is nobody to share with.
-    -- Keep the engine's normal full award instead of giving the active mon
-    -- one half and silently discarding the other half.
-    local others=eligibleOthers(battle,main)
+    -- The engine tracks every surviving mon that fought the defeated enemy in
+    -- ctx.alive/ctx.participants.  Only party members outside that set receive
+    -- the shared half.  If nobody else is eligible, retain the native full
+    -- participant award instead of discarding half of the experience.
+    local others=eligibleNonParticipants(battle,participantSet)
     if #others==0 then return next(ctx) end
 
-    -- The main/current battler gets its 50% with the native helper and normal text.
-    if (main.level or 0)<100 then ctx.applyShare(main,2,true) end
+    -- Participants divide one half equally.  For example, two participants
+    -- each receive 25%, regardless of which one landed the final blow.
+    local participantSplit=2*math.max(1,tonumber(ctx.participants) or #ctx.alive)
+    for _,mon in ipairs(ctx.alive or {}) do
+      if (mon.level or 0)<100 then ctx.applyShare(mon,participantSplit,true) end
+    end
 
     if mode=="ACTIVE" then
       local split=2*#others
@@ -607,11 +723,12 @@ return function(mod)
     for _,mon in ipairs(others) do
       local amount=alloc[mon] or 0
       if amount>0 then
+        local before=tonumber(mon.exp) or 0
         forcedExp[mon]=amount
         ctx.applyShare(mon,statSplit,nil)
         forcedExp[mon]=nil
-        recipients=recipients+1
-        total=total+amount
+        local gained=math.max(0,(tonumber(mon.exp) or before)-before)
+        if gained>0 then recipients=recipients+1; total=total+gained end
       end
     end
     sharedExpSummary(battle,recipients,total)

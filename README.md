@@ -2,7 +2,7 @@
 
 myQualityOfLife is a configurable quality-of-life mod pack designed to provide what I believe is the best way to experience Pokemon Gen 1 using Gen1Recomp. Every feature can be toggled on or off, so you are free to customize the experience however you prefer.
 
-Current stable version: **1.2.20**
+Current stable version: **1.2.24**
 
 ## Requirement
 
@@ -23,30 +23,35 @@ All features are disabled by default.
 
 ### Battle Options
 
+- **EXP Share - Off**: uses the normal Gen 1 experience system.
+- **EXP Share - Gen1**: divides 50% equally among the Pokemon that participated against the defeated opponent, then divides the other 50% among eligible non-participants.
+- **EXP Share - Smart**: divides 50% equally among the participants and prioritizes lower-level eligible non-participants when distributing the shared half. If all recipients are at the same level, the shared experience is divided equally.
+- **Move Info**: adds Power and Accuracy to the Wide battle move selector while preserving the native Type and current/max PP display.
+
+Fainted Pokemon and level 100 Pokemon do not receive shared experience. Level-ups, stat increases, and learned moves still use the normal Gen1Recomp flow.
+
+### Cheats
+
 - **Never Miss**: prevents the player's attacks from missing.
 - **Always Crit**: makes the player's attacks always land as critical hits.
 - **Infinite PP**: prevents the player's moves from consuming PP.
 - **Always Catch**: makes Poke Balls successfully catch wild Pokemon.
-- **EXP Share - Off**: uses the normal Gen 1 experience system.
-- **EXP Share - Gen1**: gives 50% of the experience to the active Pokemon and divides the other 50% among the eligible party members.
-- **EXP Share - Smart**: gives 50% to the active Pokemon and prioritizes lower-level eligible party members when distributing the shared half. If all recipients are at the same level, the experience is divided equally.
-- **Move Info**: displays the selected move's type, power, and accuracy during battle.
-
-Fainted Pokemon and level 100 Pokemon do not receive shared experience. Level-ups, stat increases, and learned moves still use the normal Gen1Recomp flow.
-
-### Pokemon Options
-
+- **EXP Multiplier - Off / 2X / 3X / 4X**: multiplies each Pokemon's final experience award once. It also works with both EXP Share modes.
 - **Move Editor - Off**: disables the Move Editor.
 - **Move Editor - Base**: allows moves from the Pokemon's Gen 1 level-up learnset and compatible TMs. HMs are excluded.
 - **Move Editor - All**: allows any move loaded by the game.
+
+The Move Editor shows each selected move's type, PP, power, and accuracy. Left and Right change pages; Up and Down move through the list.
+
+### Pokemon Options
+
 - **Forget HM**: allows HM moves to be forgotten.
 - **Reusable TMs**: prevents TMs from being consumed after use.
 - **Quick HM - Off**: disables Quick HM.
 - **Quick HM - On**: adds Quick HM to the START menu and allows field moves without teaching them to a Pokemon, while still requiring the correct HM and badge.
 - **Quick HM - Ignore**: enables all five field HMs without requiring the HM item or badge.
+- **HM Hotkey**: appears when Quick HM is enabled and opens it directly from free overworld control. Select the option to capture a keyboard key. The default is Shift.
 - **Pikachu Evo**: allows Pikachu to evolve with a Thunder Stone in Pokemon Yellow.
-
-The Move Editor shows each selected move's type, PP, power, and accuracy. Left and Right change pages; Up and Down move through the list.
 
 ### Miscellaneous
 

@@ -1,11 +1,11 @@
 return {
-  summary = "myQualityOfLife: pacote configur?vel de melhorias e Move Editor para Pok?mon Gen 1 no Gen1Recomp.",
+  summary = "myQualityOfLife: configurable quality-of-life improvements and Move Editor for Pokemon Gen 1 on Gen1Recomp.",
   author = "OpenAI",
   tags = { "quality-of-life", "ui", "move-editor", "mechanic" },
   differences = {
-    changed = { "batalha", "experi?ncia", "movimento", "texto", "TM/HM", "Bag", "Save", "evolu??o do Pikachu" },
+    changed = { "battle", "experience", "movement", "text", "TM/HM", "Bag", "Save", "Pikachu evolution" },
     added = { "MOD OPTIONS", "Move Editor", "Smart EXP Share", "Itemfinder radar", "MISC submenu", "Quick HM", "Bag pockets", "Move Info", "Fast Save" },
-    known = { "Fast Center depende da identifica??o da enfermeira/scripts da build atual." },
+    known = { "Fast Center depends on nurse and script identification in the current build." },
   },
   credits = {},
   compat = { engine = ">=0.1.36 <2.0.0", modApi = 2 },

@@ -1,12 +1,13 @@
 {
   "id": "myQualityOfLife",
   "name": "myQualityOfLife",
-  "version": "1.2.20",
+  "version": "1.2.24",
   "api": 2,
   "entry": "main.lua",
   "profile": "overhaul",
   "category": "MECHANIC",
   "game_version": ">=0.1.36 <2.0.0",
+  "github": "andrepecosta/myQualityOfLife",
   "priority": 100,
   "dependencies": [],
   "optional_dependencies": [],
@@ -15,5 +16,5 @@
     "engine_internals"
   ],
   "affects_link": true,
-  "description": "Pacote QoL configur?vel para Pok?mon Gen 1 no Gen1Recomp, com Move Editor, op??es de batalha, EXP Share, corrida e melhorias de interface."
+  "description": "A configurable quality-of-life pack for Pokemon Gen 1 on Gen1Recomp, with battle options, EXP Share, movement features, interface improvements, and Move Editor."
 }
