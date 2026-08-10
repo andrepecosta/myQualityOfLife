@@ -613,67 +613,46 @@ return function(mod)
   end
 
   local function smartAlloc(data, recipients, pool)
-    local Growth=require("src.pokemon.Growth")
-    local sim={}
     local alloc={}
+    pool=math.max(0,math.floor(pool or 0))
+    if pool==0 or #recipients==0 then return alloc end
+
+    -- Snapshot the lowest level before any award is applied. A recipient that
+    -- levels up during this award stays in the chosen group; already-higher
+    -- Pokemon do not join midway just because the levels became equal.
+    local minLevel=1000
     for _,mon in ipairs(recipients) do
-      sim[mon]={level=mon.level or 1,exp=mon.exp or 0}
+      minLevel=math.min(minLevel,tonumber(mon.level) or 1)
       alloc[mon]=0
     end
-    pool=math.max(0,math.floor(pool or 0))
-    while pool>0 and #recipients>0 do
-      local minLevel=1000
-      for _,mon in ipairs(recipients) do if sim[mon].level<minLevel then minLevel=sim[mon].level end end
-      local group={}
-      for _,mon in ipairs(recipients) do if sim[mon].level==minLevel then group[#group+1]=mon end end
-      if #group==#recipients then
-        local each=math.floor(pool/#group)
-        local rem=pool-each*#group
-        for i,mon in ipairs(group) do
-          local give=each + (i<=rem and 1 or 0)
-          alloc[mon]=alloc[mon]+give; sim[mon].exp=sim[mon].exp+give
-        end
-        pool=0
-        break
-      end
-      local step=nil
-      for _,mon in ipairs(group) do
-        local def=data.pokemon[mon.species]
-        local need=Growth.expForLevel(def.growthRate,sim[mon].level+1,data.growth_rates)-sim[mon].exp
-        need=math.max(1,need)
-        if not step or need<step then step=need end
-      end
-      local cost=step*#group
-      if cost<=pool then
-        for _,mon in ipairs(group) do
-          alloc[mon]=alloc[mon]+step
-          sim[mon].exp=sim[mon].exp+step
-          local def=data.pokemon[mon.species]
-          sim[mon].level=Growth.levelForExp(def.growthRate,sim[mon].exp,100,data.growth_rates)
-        end
-        pool=pool-cost
-      else
-        local each=math.floor(pool/#group)
-        local rem=pool-each*#group
-        for i,mon in ipairs(group) do
-          local give=each+(i<=rem and 1 or 0)
-          alloc[mon]=alloc[mon]+give
-        end
-        pool=0
-      end
+    local group={}
+    for _,mon in ipairs(recipients) do
+      if (tonumber(mon.level) or 1)==minLevel then group[#group+1]=mon end
+    end
+    local each=math.floor(pool/#group)
+    local rem=pool-each*#group
+    for i,mon in ipairs(group) do
+      alloc[mon]=each+(i<=rem and 1 or 0)
     end
     return alloc
   end
 
-  local function sharedExpSummary(battle, recipients, total)
+  local function sharedExpSummary(battle, recipients, total, insertAfter)
     recipients=math.max(0,math.floor(recipients or 0))
     total=math.max(0,math.floor(total or 0))
     if recipients==0 or total==0 or not battle or not battle.sayNext then return end
+    -- Experience.apply queues level-up text immediately through sayNext. When
+    -- the total is only known after applying every share, temporarily restore
+    -- the insertion cursor captured before those awards so this summary is
+    -- displayed first, then advance it past every row already queued.
+    local queuedThrough=battle.nextInsert
+    if insertAfter~=nil then battle.nextInsert=insertAfter end
     if recipients==1 then
       battle:sayNext(("1 POKéMON gained\n%d EXP!"):format(total))
     else
       battle:sayNext(("%d POKéMON shared\n%d EXP!"):format(recipients,total))
     end
+    if insertAfter~=nil then battle.nextInsert=(queuedThrough or insertAfter)+1 end
   end
 
   mod.hooks:wrap("battle.exp_award", function(next, ctx)
@@ -691,11 +670,29 @@ return function(mod)
     if #others==0 then return next(ctx) end
 
     -- Participants divide one half equally.  For example, two participants
-    -- each receive 25%, regardless of which one landed the final blow.
+    -- each receive 25%, regardless of which one landed the final blow. Keep
+    -- every participant's native gained-EXP row together at the front, while
+    -- leaving their level-up rows behind it. This gives the shared summary a
+    -- stable insertion point between gained EXP and resulting level changes.
     local participantSplit=2*math.max(1,tonumber(ctx.participants) or #ctx.alive)
+    local participantQueueStart=battle.nextInsert or 0
+    local participantAnnouncements=0
     for _,mon in ipairs(ctx.alive or {}) do
-      if (mon.level or 0)<100 then ctx.applyShare(mon,participantSplit,true) end
+      if (mon.level or 0)<100 then
+        local before=battle.nextInsert or participantQueueStart
+        ctx.applyShare(mon,participantSplit,true)
+        local after=battle.nextInsert or before
+        if after>before and battle.queue then
+          local announcement=table.remove(battle.queue,before+1)
+          battle.nextInsert=after-1
+          participantAnnouncements=participantAnnouncements+1
+          table.insert(battle.queue,
+            participantQueueStart+participantAnnouncements,announcement)
+          battle.nextInsert=battle.nextInsert+1
+        end
+      end
     end
+    local summaryInsert=participantQueueStart+participantAnnouncements
 
     if mode=="ACTIVE" then
       local split=2*#others
@@ -706,7 +703,7 @@ return function(mod)
         local gained=math.max(0,(tonumber(mon.exp) or before)-before)
         if gained>0 then recipients=recipients+1; total=total+gained end
       end
-      sharedExpSummary(battle,recipients,total)
+      sharedExpSummary(battle,recipients,total,summaryInsert)
       return
     end
 
@@ -731,7 +728,7 @@ return function(mod)
         if gained>0 then recipients=recipients+1; total=total+gained end
       end
     end
-    sharedExpSummary(battle,recipients,total)
+    sharedExpSummary(battle,recipients,total,summaryInsert)
   end)
 
   -- ---------------- field/QoL hooks ----------------
@@ -1127,6 +1124,9 @@ return function(mod)
     SOFTBOILED=41,DREAM_EATER=42,SKY_ATTACK=43,REST=44,THUNDER_WAVE=45,
     PSYWAVE=46,EXPLOSION=47,ROCK_SLIDE=48,TRI_ATTACK=49,SUBSTITUTE=50,
   }
+  local TMHM_MOVE_ABBREVIATIONS={
+    THUNDERBOLT="THNDRBOLT",
+  }
 
   local function typeSortRank(game,id,pocket)
     if pocket=="ITEMS" then
@@ -1147,15 +1147,57 @@ return function(mod)
     return 9000
   end
 
+  -- ListMenu starts labels at x=16 and right-aligns quantities against x=152.
+  -- Fit TM/HM labels into the pixels between those columns. Longer/custom
+  -- names lose only as many trailing letters as needed, without an ellipsis.
+  -- For multi-word moves, shorten the longest word first so the recognizable
+  -- final word remains visible (for example SEISMIC TOSS -> SEISM TOSS).
+  local function fitBagLabel(label,right)
+    local Font=require("src.render.Font")
+    local budget=136-Font.width(right or "")
+    if Font.width(label)<=budget then return label end
+    local machine,move=label:match("^(%S+)%s+(.+)$")
+    if machine and move then
+      local words={}
+      for word in move:gmatch("%S+") do words[#words+1]=word end
+      local function joined() return machine.." "..table.concat(words," ") end
+      while #words>0 and Font.width(joined())>budget do
+        local longest,longestWidth=nil,-1
+        for i,word in ipairs(words) do
+          local spans=Font.split(word)
+          local width=Font.width(word)
+          if #spans>1 and width>longestWidth then longest,longestWidth=i,width end
+        end
+        if not longest then break end
+        local spans=Font.split(words[longest])
+        words[longest]=words[longest]:sub(1,spans[#spans-1].to)
+      end
+      label=joined()
+      if Font.width(label)<=budget then return label end
+    end
+    local spans=Font.split(label)
+    local fit=Font.spansFitting(spans,math.max(0,budget))
+    if fit<=0 then return "" end
+    return label:sub(1,spans[fit].to):gsub("%s+$","")
+  end
+
   local function buildPocketItems(game,pocket,sortMode)
     local rows={}
     for _,id in ipairs(Bag.order(game.save)) do
       if bagPocketFor(game,id)==pocket then
         local def=game.data.items[id]
+        local right="x"..tostring(game.save.inventory[id] or 0)
+        local label=(def and def.name) or id
+        if pocket=="TMHM" and def and def.machine then
+          local moveDef=game.data and game.data.moves and game.data.moves[def.machine.move]
+          local moveName=(moveDef and moveDef.name) or tostring(def.machine.move or "")
+          moveName=TMHM_MOVE_ABBREVIATIONS[moveName] or moveName
+          label=fitBagLabel(label.." "..moveName,right)
+        end
         rows[#rows+1]={
           value=id,
-          label=(def and def.name) or id,
-          right="x"..tostring(game.save.inventory[id] or 0),
+          label=label,
+          right=right,
           acquisition=#rows+1,
         }
       end

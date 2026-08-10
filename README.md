@@ -2,7 +2,7 @@
 
 myQualityOfLife is a configurable quality-of-life mod pack designed to provide what I believe is the best way to experience Pokemon Gen 1 using Gen1Recomp. Every feature can be toggled on or off, so you are free to customize the experience however you prefer.
 
-Current stable version: **1.2.24**
+Current stable version: **1.2.28**
 
 ## Requirement
 
@@ -25,10 +25,11 @@ All features are disabled by default.
 
 - **EXP Share - Off**: uses the normal Gen 1 experience system.
 - **EXP Share - Gen1**: divides 50% equally among the Pokemon that participated against the defeated opponent, then divides the other 50% among eligible non-participants.
-- **EXP Share - Smart**: divides 50% equally among the participants and prioritizes lower-level eligible non-participants when distributing the shared half. If all recipients are at the same level, the shared experience is divided equally.
+- **EXP Share - Smart**: divides 50% equally among the participants and gives the shared half to the eligible non-participants that had the lowest level before distribution began. A Pokemon leveling up during that award does not change the recipient group; tied lowest-level recipients divide the shared experience equally.
 - **Move Info**: adds Power and Accuracy to the Wide battle move selector while preserving the native Type and current/max PP display.
 
 Fainted Pokemon and level 100 Pokemon do not receive shared experience. Level-ups, stat increases, and learned moves still use the normal Gen1Recomp flow.
+Participant EXP messages are displayed first, followed by the shared-experience summary, and then any resulting level-up messages.
 
 ### Cheats
 
@@ -70,6 +71,7 @@ The Move Editor shows each selected move's type, PP, power, and accuracy. Left a
 
 - Increases the Bag capacity to **999 different item slots**. The native per-item quantity limit remains unchanged.
 - Separates the Bag into Gen 2-style **Items**, **Key**, **Ball**, and **TM/HM** tabs.
+- Shows each TM/HM's move name beside its machine number. Long names use readable abbreviations such as `THNDRBOLT`, then shorten at the final fitting letter if still necessary, without dots or overlap with the quantity.
 - Switches tabs with Left and Right.
 - Opens the Auto Sort menu with START.
 - **Sort - Off**: preserves acquisition order and allows manual reordering with SELECT.
