@@ -1,7 +1,7 @@
 {
-  "id": "deco_qol",
-  "name": "Deco QoL",
-  "version": "1.2.14",
+  "id": "myQualityOfLife",
+  "name": "myQualityOfLife",
+  "version": "1.2.15",
   "api": 2,
   "entry": "main.lua",
   "profile": "overhaul",

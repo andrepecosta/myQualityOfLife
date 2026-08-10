@@ -1,20 +1,20 @@
-# Deco QoL
+# myQualityOfLife
 
-Deco QoL is a configurable quality-of-life mod pack designed to provide what I believe is the best way to experience Pok?mon Gen 1 using Gen1Recomp. Every feature can be toggled on or off, so you are free to customize the experience however you prefer.
+myQualityOfLife is a configurable quality-of-life mod pack designed to provide what I believe is the best way to experience Pok?mon Gen 1 using Gen1Recomp. Every feature can be toggled on or off, so you are free to customize the experience however you prefer.
 
-Current stable version: **1.2.14**
+Current stable version: **1.2.15**
 
 ## Requirement
 
-[Gen1Recomp](https://github.com/Gen1Recomp/Gen1Recomp) is required. Deco QoL is a Gen1Recomp mod and cannot be used as a standalone game or with a standard Pok?mon ROM emulator.
+[Gen1Recomp](https://github.com/Gen1Recomp/Gen1Recomp) is required. myQualityOfLife is a Gen1Recomp mod and cannot be used as a standalone game or with a standard Pok?mon ROM emulator.
 
 Use a Gen1Recomp version compatible with the range declared in `manifest.json`.
 
 ## Installation
 
 1. Install and configure Gen1Recomp.
-2. Place the Deco QoL mod files in the Gen1Recomp mods directory.
-3. Start Gen1Recomp and enable Deco QoL.
+2. Place the myQualityOfLife mod files in the Gen1Recomp mods directory.
+3. Start Gen1Recomp and enable myQualityOfLife.
 4. Open **MOD OPTIONS** from the in-game START menu to configure the features.
 
 All features are disabled by default.
@@ -82,4 +82,4 @@ The Move Editor shows each selected move's type, PP, power, and accuracy. Left a
 
 ## Notes
 
-Deco QoL affects gameplay mechanics and link compatibility. Feature availability can depend on the installed Gen1Recomp build and its internal APIs.
+myQualityOfLife affects gameplay mechanics and link compatibility. Feature availability can depend on the installed Gen1Recomp build and its internal APIs.

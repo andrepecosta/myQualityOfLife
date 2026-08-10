@@ -1,4 +1,4 @@
--- Deco QoL
+-- myQualityOfLife
 -- Gen1Recomp API 2 mod. Configurable quality-of-life pack with Move Editor.
 return function(mod)
   local MAIN_SCREEN = "PMEQoLMain"

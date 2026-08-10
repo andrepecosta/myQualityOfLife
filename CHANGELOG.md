@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.15
+- Renomeado o nome p?blico e o identificador interno do mod para `myQualityOfLife`, alinhando-os ao nome do reposit?rio.
+- Move Info agora usa a cor de fundo definida pela paleta ativa, permitindo que o tema escolhido pelo jogador controle a apar?ncia do painel.
+- README p?blico refeito em ingl?s com requisito do Gen1Recomp, instala??o e descri??o de todas as op??es.
+
 ## 1.2.14
 - Vers?o est?vel promovida ap?s a valida??o da beta.14.
 - Inclui todas as op??es de QoL, corre??es, Bag com abas, Quick HM, Itemfinder, Move Info, Fast Save e confirma??es de reset testadas.

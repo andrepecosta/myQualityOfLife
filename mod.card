@@ -1,5 +1,5 @@
 return {
-  summary = "Deco QoL: pacote configur?vel de melhorias e Move Editor para Pok?mon Gen 1 no Gen1Recomp.",
+  summary = "myQualityOfLife: pacote configur?vel de melhorias e Move Editor para Pok?mon Gen 1 no Gen1Recomp.",
   author = "OpenAI",
   tags = { "quality-of-life", "ui", "move-editor", "mechanic" },
   differences = {
