@@ -1210,7 +1210,8 @@ return function(mod)
     return list
   end
 
-  -- Gen 2-style move details in the classic battle move selector.
+  -- This hook is also used by the Wide layout in compatible Gen1Recomp
+  -- builds. Keep the native Type/PP panel and add Power/Accuracy below it.
   local BattleState=require("src.battle.BattleState")
   local oldDrawBattleText=BattleState.drawTextArea
   BattleState.drawTextArea=function(self)
@@ -1221,53 +1222,17 @@ return function(mod)
       local def=selected and self.data.moves[selected.id]
       if def then
         local Font=require("src.render.Font")
-        local typ=typeName(self.game,def.type or def.moveType or def.typeId)
-        typ=tostring(typ):gsub("[%s_%-]*TYPE$","")
-        if #typ>8 then typ=typ:sub(1,8) end
         local power=tonumber(def.power)
         local accuracy=tonumber(def.accuracy)
         if accuracy and accuracy<=1 then accuracy=math.floor(accuracy*100+0.5)
         elseif accuracy then accuracy=math.floor(accuracy+0.5) end
         local pwr=(power and power>0) and tostring(math.floor(power+0.5)) or "--"
         local acc=accuracy and tostring(accuracy) or "--"
-        local paper=require("src.render.PaletteFX").paperShade(self.data)
-        love.graphics.setColor(paper)
-        love.graphics.rectangle("fill",8,72,72,24)
         love.graphics.setColor(0,0,0,1)
-        Font.draw(typ,8,72)
-        Font.draw(("PWR %s"):format(pwr),8,80)
-        Font.draw(("ACC %s"):format(acc),8,88)
-        love.graphics.setColor(1,1,1,1)
-      end
-    end
-    return result
-  end
-
-  local WideBattle=require("src.battle.WideBattle")
-  local oldWideDraw=WideBattle.draw
-  WideBattle.draw=function(battle)
-    local result=oldWideDraw(battle)
-    if get("move_info") and battle.phase=="moveSelect" and battle.player
-       and battle.player.disabledSlot~=battle.moveIndex then
-      local selected=battle.player.curMoves and battle.player.curMoves[battle.moveIndex]
-      local def=selected and battle.data.moves[selected.id]
-      if def then
-        local Font=require("src.render.Font")
-        local typ=typeName(battle.game,def.type or def.moveType or def.typeId)
-        typ=tostring(typ):gsub("[%s_%-]*TYPE$","")
-        if #typ>8 then typ=typ:sub(1,8) end
-        local power=tonumber(def.power)
-        local accuracy=tonumber(def.accuracy)
-        if accuracy and accuracy<=1 then accuracy=math.floor(accuracy*100+0.5)
-        elseif accuracy then accuracy=math.floor(accuracy+0.5) end
-        local pwr=(power and power>0) and tostring(math.floor(power+0.5)) or "--"
-        local acc=accuracy and tostring(accuracy) or "--"
-        local paper=require("src.render.PaletteFX").paperShade(battle.data)
-        love.graphics.setColor(paper)
-        love.graphics.rectangle("fill",232,112,64,24)
-        love.graphics.setColor(0,0,0,1)
-        Font.draw(typ,232,112)
-        Font.draw(("P%s A%s"):format(pwr,acc),232,128)
+        Font.draw("POW",8,104)
+        Font.draw(pwr,8,112)
+        Font.draw("ACC",8,120)
+        Font.draw(acc,8,128)
         love.graphics.setColor(1,1,1,1)
       end
     end
