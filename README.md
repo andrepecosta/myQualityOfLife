@@ -2,7 +2,7 @@
 
 myQualityOfLife is a configurable quality-of-life mod pack designed to provide what I believe is the best way to experience Pokemon Gen 1 using Gen1Recomp. Every feature can be toggled on or off, so you are free to customize the experience however you prefer.
 
-Current stable version: **1.2.31**
+Current stable version: **1.2.33**
 
 ## Requirement
 
@@ -15,7 +15,7 @@ Use a Gen1Recomp version compatible with the range declared in `manifest.json`.
 1. Install and configure Gen1Recomp.
 2. Place the myQualityOfLife mod files in the Gen1Recomp mods directory.
 3. Start Gen1Recomp and enable myQualityOfLife.
-4. Open **MOD OPTIONS** from the in-game START menu to configure the features.
+4. Open **OPTIONS**, then select **myQualityOfLife** to configure the features.
 
 All features are disabled by default.
 
@@ -29,7 +29,7 @@ All features are disabled by default.
 - **Move Info**: adds Power and Accuracy to the Wide battle move selector while preserving the native Type and current/max PP display.
 
 Fainted Pokemon and level 100 Pokemon do not receive shared experience. Level-ups, stat increases, and learned moves still use the normal Gen1Recomp flow.
-Each participant completes its EXP, level-up, stat, and move-learning flow before the next participant. The shared summary then reports the per-Pokemon amount (for example, `2 POKEMON gained 25 EXP!`) before shared recipients begin their own level-up flows. Unequal awards are reported by Pokemon name.
+Each participant completes its EXP, level-up, stat, and move-learning flow before the next participant. The shared summary then reports the per-Pokemon amount (for example, `2 POKEMON gained 25 EXP!`) before shared recipients begin their own level-up flows. Shared recipients receive equal awards; any division remainder is added to the primary participant's award.
 
 ### Cheats
 
@@ -51,7 +51,7 @@ The Move Editor shows each selected move's type, PP, power, and accuracy. Left a
 - **Quick HM - Off**: disables Quick HM.
 - **Quick HM - On**: adds Quick HM to the START menu and allows field moves without teaching them to a Pokemon, while still requiring the correct HM and badge.
 - **Quick HM - Ignore**: enables all five field HMs without requiring the HM item or badge.
-- **HM Hotkey**: appears when Quick HM is enabled and opens it directly from free overworld control. Select the option to capture a keyboard key. The default is Shift.
+- **HM Hotkey**: appears when Quick HM is enabled and opens it directly from free overworld control. Keyboard and controller shortcuts are configured independently, so either or both can remain active. The keyboard defaults to Shift and the controller defaults to Off.
 - **Pikachu Evo**: allows Pikachu to evolve with a Thunder Stone in Pokemon Yellow.
 
 ### Miscellaneous
@@ -64,6 +64,7 @@ The Move Editor shows each selected move's type, PP, power, and accuracy. Left a
 - **Itemfinder - Off**: disables the Itemfinder enhancement.
 - **Itemfinder - On**: detects hidden items within the native Itemfinder range without requiring the item and marks their locations with an animated shrinking square.
 - **Itemfinder - Have Item**: enables the same detection effect only when the player owns the Itemfinder.
+- **Type Fixes**: makes Ghost attacks super effective against Psychic; changes Karate Chop from Normal to Fighting, Sand Attack from Normal to Ground, and Gust from Normal to Flying; raises Lick from 20 to 30 power and Low Kick from 50 to 60 power; and raises Submission from 80 to 90 accuracy.
 - **Fast Center**: skips the standard Pokemon Center conversation, heals the party immediately, and plays the normal healing-machine jingle.
 - **Fast Save**: saves immediately without confirmation text boxes and plays only the save confirmation sound.
 

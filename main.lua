@@ -8,6 +8,8 @@ return function(mod)
   local CHEATS_SCREEN = "PMEQoLCheats"
   local QUICK_HM_SCREEN = "PMEQoLQuickHM"
   local QUICK_HM_HOTKEY_SCREEN = "PMEQoLQuickHMHotkey"
+  local QUICK_HM_KEY_CAPTURE_SCREEN = "PMEQoLQuickHMKeyCapture"
+  local QUICK_HM_PAD_CAPTURE_SCREEN = "PMEQoLQuickHMPadCapture"
   local BAG_SORT_SCREEN = "PMEQoLBagSort"
   local MOVE_SCREEN = "PlayerMoveEditorMoves"
   local PICK_SCREEN = "PlayerMoveEditorPick"
@@ -21,6 +23,7 @@ return function(mod)
     auto_run = false,
     instant_text = false,
     itemfinder = "OFF",       -- OFF / ON / HAVE ITEM
+    type_fixes = false,
     fast_center = false,
     fast_save = false,
     never_miss = false,
@@ -35,13 +38,14 @@ return function(mod)
     unlimited_tm = false,
     quick_hm = "OFF",          -- OFF / ON / IGNORE
     quick_hm_hotkey = "shift",
+    quick_hm_gamepad = "OFF",
     bag_sort = "OFF",          -- OFF / NAME / QUANTITY / TYPE
     pikachu_evo = false,
   }
 
-  local MISC_KEYS = { "fast_run", "auto_run", "instant_text", "itemfinder", "fast_center", "fast_save", "bag_sort" }
+  local MISC_KEYS = { "fast_run", "auto_run", "instant_text", "itemfinder", "type_fixes", "fast_center", "fast_save", "bag_sort" }
   local BATTLE_KEYS = { "exp_share", "move_info" }
-  local POKEMON_KEYS = { "forget_hm", "unlimited_tm", "quick_hm", "quick_hm_hotkey", "pikachu_evo" }
+  local POKEMON_KEYS = { "forget_hm", "unlimited_tm", "quick_hm", "quick_hm_hotkey", "quick_hm_gamepad", "pikachu_evo" }
   local CHEAT_KEYS = { "never_miss", "always_crit", "infinite_pp", "always_catch", "exp_multiplier", "move_editor" }
 
   local function get(key)
@@ -102,11 +106,28 @@ return function(mod)
     return names[key] or key:upper()
   end
 
+  local function gamepadText(button)
+    button=tostring(button or "OFF")
+    local names={
+      leftshoulder="L1",rightshoulder="R1",
+      lefttrigger="L2",righttrigger="R2",
+      leftstick="L3",rightstick="R3",
+    }
+    local raw=button:match("^joy:(%d+)$")
+    if raw then return "JOY "..raw end
+    return names[button] or button:upper()
+  end
+
   local BLOCKED_HOTKEYS={
     up=true,down=true,left=true,right=true,w=true,a=true,s=true,d=true,
     z=true,x=true,["return"]=true,space=true,backspace=true,escape=true,tab=true,
     ["1"]=true,["2"]=true,["3"]=true,["4"]=true,["5"]=true,
     f1=true,f2=true,f5=true,f10=true,
+  }
+
+  local BLOCKED_PAD_HOTKEYS={
+    a=true,b=true,x=true,y=true,back=true,start=true,guide=true,
+    dpup=true,dpdown=true,dpleft=true,dpright=true,
   }
 
   -- Preserve the highlighted option when a settings screen is rebuilt.
@@ -194,14 +215,25 @@ return function(mod)
     local def = game and game.data and game.data.moves and game.data.moves[id]
     if not def then def = mod.content.moves:get(id) end
     if not def then return "--  PP--\nPWR-- ACC--" end
-    local typ = typeName(game, def.type or def.moveType or def.typeId or def.type_id)
+    local moveType=def.type or def.moveType or def.typeId or def.type_id
+    local power=def.power
+    local accuracy=def.accuracy
+    if get("type_fixes") then
+      if id=="KARATE_CHOP" then moveType="FIGHTING"
+      elseif id=="SAND_ATTACK" then moveType="GROUND"
+      elseif id=="GUST" then moveType="FLYING"
+      elseif id=="LICK" then power=30
+      elseif id=="LOW_KICK" then power=60
+      elseif id=="SUBMISSION" then accuracy=90 end
+    end
+    local typ = typeName(game, moveType)
     -- Some data tables expose display strings such as "PSYCHIC TYPE".
     -- The footer already represents the Type field, so keep only the type name.
     typ = tostring(typ):gsub("[%s_%-]*TYPE$", "")
     if typ == "" then typ = "--" end
     local pp = tostring(def.pp or def.basePP or "--")
-    local pwr = tonumber(def.power)
-    local acc = tonumber(def.accuracy)
+    local pwr = tonumber(power)
+    local acc = tonumber(accuracy)
     local pwrText = (pwr and pwr > 0) and tostring(math.floor(pwr + 0.5)) or "--"
     local accText
     if not acc then accText = "--"
@@ -282,6 +314,7 @@ return function(mod)
       end
       items[#items+1] = { label="INSTANT TEXT", right=boolText(get("instant_text")), value="instant_text" }
       items[#items+1] = { label="ITEMFINDER", right=tostring(get("itemfinder")), value="itemfinder" }
+      items[#items+1] = { label="TYPE FIXES", right=boolText(get("type_fixes")), value="type_fixes" }
       items[#items+1] = { label="FAST CENTER", right=boolText(get("fast_center")), value="fast_center" }
       items[#items+1] = { label="FAST SAVE", right=boolText(get("fast_save")), value="fast_save" }
       items[#items+1] = { label="RESET DEFAULTS", value="reset" }
@@ -293,6 +326,7 @@ return function(mod)
           elseif item.value == "auto_run" then toggle(game,"auto_run")
           elseif item.value == "instant_text" then toggle(game,"instant_text")
           elseif item.value == "itemfinder" then cycle(game,"itemfinder",{"OFF","ON","HAVE ITEM"})
+          elseif item.value == "type_fixes" then toggle(game,"type_fixes")
           elseif item.value == "fast_center" then toggle(game,"fast_center")
           elseif item.value == "fast_save" then toggle(game,"fast_save")
           elseif item.value == "reset" then
@@ -367,10 +401,37 @@ return function(mod)
 
   mod.content.screens:register(QUICK_HM_HOTKEY_SCREEN, {
     new=function(game)
-      local menu=mod.ui.ListMenu.new(game,"QUICK HM HOTKEY",{
+      local items={
+        {label="KEYBOARD",right=hotkeyText(get("quick_hm_hotkey")),value="keyboard"},
+        {label="CONTROLLER",right=gamepadText(get("quick_hm_gamepad")),value="controller"},
+      }
+      if get("quick_hm_gamepad")~="OFF" then
+        items[#items+1]={label="DISABLE CONTROLLER",value="disable_controller"}
+      end
+      local menu
+      menu=mod.ui.ListMenu.new(game,"QUICK HM HOTKEY",items,{
+        onChoose=function(item)
+          if not item then return end
+          if item.value=="keyboard" then
+            mod.ui.push(game,QUICK_HM_KEY_CAPTURE_SCREEN)
+          elseif item.value=="controller" then
+            mod.ui.push(game,QUICK_HM_PAD_CAPTURE_SCREEN)
+          elseif item.value=="disable_controller" then
+            set(game,"quick_hm_gamepad","OFF")
+            refresh(menu,game,QUICK_HM_HOTKEY_SCREEN)
+          end
+        end,
+      })
+      return menu
+    end,
+  })
+
+  mod.content.screens:register(QUICK_HM_KEY_CAPTURE_SCREEN, {
+    new=function(game)
+      local menu=mod.ui.ListMenu.new(game,"KEYBOARD HOTKEY",{
         {label="PRESS A KEY"},
         {label="ESC TO CANCEL"},
-      },{ rows=2 })
+      },{rows=2})
       menu.onKeyPressed=function(self,key)
         if key=="escape" or key=="backspace" then
           game.stack:pop()
@@ -384,8 +445,32 @@ return function(mod)
         set(game,"quick_hm_hotkey",key)
         game.stack:pop()
         local parent=game.stack:top()
-        refresh(parent,game,POKEMON_SCREEN)
+        refresh(parent,game,QUICK_HM_HOTKEY_SCREEN)
       end
+      return menu
+    end,
+  })
+
+  mod.content.screens:register(QUICK_HM_PAD_CAPTURE_SCREEN, {
+    new=function(game)
+      local menu=mod.ui.ListMenu.new(game,"CONTROLLER HOTKEY",{
+        {label="PRESS A BUTTON"},
+        {label="B TO CANCEL"},
+      },{rows=2})
+      menu.quickHMHotkeyCapture=true
+      local function capture(self,button)
+        if button=="b" then game.stack:pop() return end
+        if BLOCKED_PAD_HOTKEYS[button] then
+          self.items[1].label="BUTTON NOT AVAILABLE"
+          return
+        end
+        set(game,"quick_hm_gamepad",button)
+        game.stack:pop()
+        local parent=game.stack:top()
+        refresh(parent,game,QUICK_HM_HOTKEY_SCREEN)
+      end
+      menu.onGamepadPressed=function(self,button) capture(self,button) end
+      menu.onJoystickPressed=function(self,button) capture(self,"joy:"..tostring(button)) end
       return menu
     end,
   })
@@ -443,33 +528,79 @@ return function(mod)
         onSelect=function() mod.ui.push(game,QUICK_HM_SCREEN) end,
       })
     end
-    return mod.ui.insertBefore(out, "SAVE", {
-      label="MOD OPTIONS",
-      onSelect=function() mod.ui.push(game,MAIN_SCREEN) end,
-    })
+    return out
   end)
 
-  -- Configurable keyboard shortcut. It claims the key only during free
-  -- overworld control; everywhere else the engine receives its normal input.
+  -- Keep START focused on gameplay. The mod's configuration lives in the
+  -- native OPTIONS menu alongside the engine's own settings.
+  mod.hooks:wrap("ui.options.rows", function(next,game,rows)
+    local out=next(game,rows)
+    if type(out)~="table" then return out end
+    out[#out+1]={
+      id="my_quality_of_life",
+      label="myQualityOfLife",
+      activate=function(g) mod.ui.push(g,MAIN_SCREEN) end,
+    }
+    return out
+  end)
+
+  -- Configurable keyboard/controller shortcuts. They claim the configured
+  -- input only during free overworld control; everywhere else the engine
+  -- receives its normal input.
   local Game=require("src.core.Game")
+  local function openQuickHMFromHotkey(game)
+    if get("quick_hm")=="OFF" then return false end
+    local ow=game.overworld
+    local top=game.stack and game.stack:top()
+    local busy=not ow or top~=ow or ow.transitioning
+      or (ow.runner and ow.runner.isRunning and ow.runner:isRunning())
+      or (ow.scriptMoves and #ow.scriptMoves>0)
+      or ow.engaging or ow.emote
+    if busy then return false end
+    mod.ui.push(game,QUICK_HM_SCREEN)
+    return true
+  end
+
   local oldGameKeyPressed=Game.keypressed
   Game.keypressed=function(self,key)
     local configured=tostring(get("quick_hm_hotkey") or "shift")
     local matches=(configured=="shift" and (key=="lshift" or key=="rshift"))
                   or key==configured
-    if get("quick_hm")~="OFF" and matches then
-      local ow=self.overworld
-      local top=self.stack and self.stack:top()
-      local busy=not ow or top~=ow or ow.transitioning
-        or (ow.runner and ow.runner.isRunning and ow.runner:isRunning())
-        or (ow.scriptMoves and #ow.scriptMoves>0)
-        or ow.engaging or ow.emote
-      if not busy then
-        mod.ui.push(self,QUICK_HM_SCREEN)
-        return
-      end
-    end
+    if matches and openQuickHMFromHotkey(self) then return end
     return oldGameKeyPressed(self,key)
+  end
+
+  local oldGamepadPressed=Game.gamepadpressed
+  Game.gamepadpressed=function(self,joystick,button)
+    local top=self.stack and self.stack:top()
+    -- Capture before the engine reserves shoulders/triggers for game speed.
+    if top and top.quickHMHotkeyCapture and top.onGamepadPressed then
+      top:onGamepadPressed(button)
+      return
+    end
+    local configured=tostring(get("quick_hm_gamepad") or "OFF")
+    if configured~="OFF" and button==configured
+       and openQuickHMFromHotkey(self) then return end
+    return oldGamepadPressed(self,joystick,button)
+  end
+
+  local oldJoystickPressed=Game.joystickpressed
+  Game.joystickpressed=function(self,joystick,button)
+    local recognized=false
+    if joystick and joystick.isGamepad then
+      local ok,value=pcall(joystick.isGamepad,joystick)
+      recognized=ok and value==true
+    end
+    local top=self.stack and self.stack:top()
+    if not recognized and top and top.quickHMHotkeyCapture
+       and top.onJoystickPressed then
+      top:onJoystickPressed(button)
+      return
+    end
+    local configured=tostring(get("quick_hm_gamepad") or "OFF")
+    if not recognized and configured==("joy:"..tostring(button))
+       and openQuickHMFromHotkey(self) then return end
+    return oldJoystickPressed(self,joystick,button)
   end
 
   -- ---------------- Move Editor (stable v1.1 behavior + filters/info) ----------------
@@ -559,9 +690,64 @@ return function(mod)
   end)
 
   -- ---------------- battle toggles ----------------
+  local function typeFixedMove(move)
+    if not get("type_fixes") or not move then return move end
+    local patch
+    if move.id=="KARATE_CHOP" then patch={type="FIGHTING"}
+    elseif move.id=="SAND_ATTACK" then patch={type="GROUND"}
+    elseif move.id=="GUST" then patch={type="FLYING"}
+    elseif move.id=="LICK" then patch={power=30}
+    elseif move.id=="LOW_KICK" then patch={power=60}
+    elseif move.id=="SUBMISSION" then patch={accuracy=90} end
+    if not patch then return move end
+    local copy={}
+    for key,value in pairs(move) do copy[key]=value end
+    for key,value in pairs(patch) do copy[key]=value end
+    return copy
+  end
+
   mod.hooks:wrap("battle.accuracy", function(next, ctx)
     if get("never_miss") and ctx and ctx.user and ctx.user.isPlayer then return true end
+    if ctx and get("type_fixes") and ctx.move and ctx.move.id=="SUBMISSION" then
+      local copy={}
+      for key,value in pairs(ctx) do copy[key]=value end
+      copy.move=typeFixedMove(ctx.move)
+      return next(copy)
+    end
     return next(ctx)
+  end)
+
+  mod.hooks:wrap("battle.damage", function(next, ctx)
+    if not get("type_fixes") or not ctx or not ctx.move then return next(ctx) end
+    local copy={}
+    for key,value in pairs(ctx) do copy[key]=value end
+    copy.move=typeFixedMove(ctx.move)
+
+    -- Gen 1's chart accidentally makes Psychic immune to Ghost. Replace only
+    -- that defending type for the duration of this calculation with Ghost,
+    -- whose vanilla Ghost matchup is the intended 2x. This preserves STAB,
+    -- critical hits, random damage, dual-type floors and effectiveness text.
+    local target=copy.target
+    local types=target and target.curTypes
+    local correctedTypes
+    if copy.move.type=="GHOST" and type(types)=="table" then
+      for i,typeId in ipairs(types) do
+        if typeId=="PSYCHIC_TYPE" then
+          correctedTypes=correctedTypes or {}
+          if #correctedTypes==0 then
+            for j,value in ipairs(types) do correctedTypes[j]=value end
+          end
+          correctedTypes[i]="GHOST"
+        end
+      end
+    end
+    if not correctedTypes then return next(copy) end
+
+    target.curTypes=correctedTypes
+    local ok,damage,info=pcall(next,copy)
+    target.curTypes=types
+    if not ok then error(damage) end
+    return damage,info
   end)
 
   mod.hooks:wrap("battle.crit", function(next, ctx)
@@ -1420,15 +1606,30 @@ return function(mod)
   local BattleState=require("src.battle.BattleState")
   local oldDrawBattleText=BattleState.drawTextArea
   BattleState.drawTextArea=function(self)
-    local result=oldDrawBattleText(self)
+    local selected=self.phase=="moveSelect" and self.player
+      and self.player.curMoves and self.player.curMoves[self.moveIndex]
+    local selectedDef=selected and self.data.moves[selected.id]
+    local originalType,changedType
+    if get("type_fixes") and selectedDef then
+      if selected.id=="KARATE_CHOP" then originalType=selectedDef.type; selectedDef.type="FIGHTING"; changedType=true
+      elseif selected.id=="SAND_ATTACK" then originalType=selectedDef.type; selectedDef.type="GROUND"; changedType=true
+      elseif selected.id=="GUST" then originalType=selectedDef.type; selectedDef.type="FLYING"; changedType=true end
+    end
+    local ok,result=pcall(oldDrawBattleText,self)
+    if changedType then selectedDef.type=originalType end
+    if not ok then error(result) end
     if get("move_info") and self.phase=="moveSelect" and self.player
        and self.player.disabledSlot~=self.moveIndex then
-      local selected=self.player.curMoves and self.player.curMoves[self.moveIndex]
       local def=selected and self.data.moves[selected.id]
       if def then
         local Font=require("src.render.Font")
         local power=tonumber(def.power)
         local accuracy=tonumber(def.accuracy)
+        if get("type_fixes") then
+          if selected.id=="LICK" then power=30
+          elseif selected.id=="LOW_KICK" then power=60
+          elseif selected.id=="SUBMISSION" then accuracy=90 end
+        end
         if accuracy and accuracy<=1 then accuracy=math.floor(accuracy*100+0.5)
         elseif accuracy then accuracy=math.floor(accuracy+0.5) end
         local pwr=(power and power>0) and tostring(math.floor(power+0.5)) or "--"
