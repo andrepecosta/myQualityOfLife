@@ -1,8 +1,25 @@
 # myQualityOfLife
 
-myQualityOfLife is a configurable quality-of-life mod pack designed to provide what I believe is the best way to experience Pokemon Gen 1 using Gen1Recomp. Every feature can be toggled on or off, so you are free to customize the experience however you prefer.
+myQualityOfLife is a configurable quality-of-life mod pack for Pokemon Gen 1 and the experimental Pokemon Gold support in Gen1Recomp. Every feature can be toggled on or off, so you are free to customize the experience however you prefer.
 
-Current stable version: **1.2.35**
+Current release: **1.3.0-beta.18** (requires Gen1Recomp 0.1.79 or newer)
+
+> **Pokemon Gold / Gen 2 beta notice:** the Gen 2 features are implemented and
+> working in current tests. However, Pokemon Gold support in Gen1Recomp is still
+> beta, so unexpected problems or compatibility changes may occur. Keep backup
+> saves while using the Gold implementation. The Gen 1 implementation has been
+> tested and approved.
+
+## Generation isolation
+
+This package contains two separate implementations selected automatically at startup:
+
+- `gen1.lua` is the tested implementation used by Red, Blue, and Yellow.
+- `gen2.lua` is a new implementation written specifically for the Pokemon Gold beta.
+
+Gold does not load the Gen 1 implementation, and Gen 1 does not load the Gold implementation. This prevents experimental Gold changes from altering the stable Gen 1 behavior while the beta is tested.
+
+Gold already provides its own four-pocket Pack, TM move names, physical/special split, and corrected type behavior. Therefore **Type Fixes** and **Pikachu Evo** are intentionally Gen 1-only. Gold Quick HM includes Cut, Fly, Surf, Strength, Flash, Whirlpool, and Waterfall. Gold support is experimental and should be tested with backup saves.
 
 ## Requirement
 

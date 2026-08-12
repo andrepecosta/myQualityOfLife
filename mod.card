@@ -1,11 +1,11 @@
 return {
-  summary = "myQualityOfLife: configurable quality-of-life improvements and Move Editor for Pokemon Gen 1 on Gen1Recomp.",
+  summary = "myQualityOfLife: isolated quality-of-life implementations for Pokemon Gen 1 and the experimental Pokemon Gold support.",
   author = "OpenAI",
   tags = { "quality-of-life", "ui", "move-editor", "mechanic" },
   differences = {
     changed = { "battle", "experience", "movement", "text", "TM/HM", "Bag", "Save", "Pikachu evolution" },
     added = { "MOD OPTIONS", "Move Editor", "Smart EXP Share", "Itemfinder radar", "MISC submenu", "Quick HM", "Bag pockets", "Move Info", "Fast Save" },
-    known = { "Fast Center depends on nurse and script identification in the current build." },
+    known = { "Pokemon Gold support is experimental and requires Gen1Recomp 0.1.79 or newer." },
   },
   credits = {},
   compat = { engine = ">=0.1.36 <2.0.0", modApi = 2 },

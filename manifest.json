@@ -1,9 +1,10 @@
 {
   "id": "myQualityOfLife",
   "name": "myQualityOfLife",
-  "version": "1.2.35",
+  "version": "1.3.0-beta.18",
   "api": 2,
   "entry": "main.lua",
+  "games": ["gen1", "gen2"],
   "profile": "overhaul",
   "category": "MECHANIC",
   "game_version": ">=0.1.36 <2.0.0",
@@ -16,5 +17,5 @@
     "engine_internals"
   ],
   "affects_link": true,
-  "description": "A configurable quality-of-life pack for Pokemon Gen 1 on Gen1Recomp, with battle options, EXP Share, movement features, interface improvements, and Move Editor."
+  "description": "A configurable quality-of-life pack for Pokemon Gen 1 and the experimental Pokemon Gold support in Gen1Recomp."
 }
