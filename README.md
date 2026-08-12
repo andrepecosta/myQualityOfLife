@@ -2,7 +2,7 @@
 
 myQualityOfLife is a configurable quality-of-life mod pack designed to provide what I believe is the best way to experience Pokemon Gen 1 using Gen1Recomp. Every feature can be toggled on or off, so you are free to customize the experience however you prefer.
 
-Current stable version: **1.2.33**
+Current stable version: **1.2.35**
 
 ## Requirement
 
@@ -51,7 +51,7 @@ The Move Editor shows each selected move's type, PP, power, and accuracy. Left a
 - **Quick HM - Off**: disables Quick HM.
 - **Quick HM - On**: adds Quick HM to the START menu and allows field moves without teaching them to a Pokemon, while still requiring the correct HM and badge.
 - **Quick HM - Ignore**: enables all five field HMs without requiring the HM item or badge.
-- **HM Hotkey**: appears when Quick HM is enabled and opens it directly from free overworld control. Keyboard and controller shortcuts are configured independently, so either or both can remain active. The keyboard defaults to Shift and the controller defaults to Off.
+- **HM Hotkey**: appears when Quick HM is enabled. In free overworld control it immediately uses Cut when facing a cuttable tree, Surf when facing water or a valid dismount, and Strength when facing a pushable boulder. If there is no contextual action, it opens the Quick HM menu normally. Keyboard and controller shortcuts are configured independently, so either or both can remain active. The keyboard defaults to Shift and the controller defaults to Off.
 - **Pikachu Evo**: allows Pikachu to evolve with a Thunder Stone in Pokemon Yellow.
 
 ### Miscellaneous
@@ -64,7 +64,7 @@ The Move Editor shows each selected move's type, PP, power, and accuracy. Left a
 - **Itemfinder - Off**: disables the Itemfinder enhancement.
 - **Itemfinder - On**: detects hidden items within the native Itemfinder range without requiring the item and marks their locations with an animated shrinking square.
 - **Itemfinder - Have Item**: enables the same detection effect only when the player owns the Itemfinder.
-- **Type Fixes**: makes Ghost attacks super effective against Psychic; changes Karate Chop from Normal to Fighting, Sand Attack from Normal to Ground, and Gust from Normal to Flying; raises Lick from 20 to 30 power and Low Kick from 50 to 60 power; and raises Submission from 80 to 90 accuracy.
+- **Type Fixes**: makes Ghost attacks super effective against Psychic; changes Karate Chop from Normal to Fighting, Sand Attack from Normal to Ground, and Gust from Normal to Flying; changes Lick into a 40-power Special Ghost move; raises Low Kick from 50 to 60 power; and raises Submission from 80 to 90 accuracy.
 - **Fast Center**: skips the standard Pokemon Center conversation, heals the party immediately, and plays the normal healing-machine jingle.
 - **Fast Save**: saves immediately without confirmation text boxes and plays only the save confirmation sound.
 

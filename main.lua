@@ -222,7 +222,7 @@ return function(mod)
       if id=="KARATE_CHOP" then moveType="FIGHTING"
       elseif id=="SAND_ATTACK" then moveType="GROUND"
       elseif id=="GUST" then moveType="FLYING"
-      elseif id=="LICK" then power=30
+      elseif id=="LICK" then moveType="GHOST"; power=40
       elseif id=="LOW_KICK" then power=60
       elseif id=="SUBMISSION" then accuracy=90 end
     end
@@ -548,6 +548,7 @@ return function(mod)
   -- input only during free overworld control; everywhere else the engine
   -- receives its normal input.
   local Game=require("src.core.Game")
+  local quickHMContextAction
   local function openQuickHMFromHotkey(game)
     if get("quick_hm")=="OFF" then return false end
     local ow=game.overworld
@@ -557,6 +558,7 @@ return function(mod)
       or (ow.scriptMoves and #ow.scriptMoves>0)
       or ow.engaging or ow.emote
     if busy then return false end
+    if quickHMContextAction and quickHMContextAction(game) then return true end
     mod.ui.push(game,QUICK_HM_SCREEN)
     return true
   end
@@ -696,7 +698,7 @@ return function(mod)
     if move.id=="KARATE_CHOP" then patch={type="FIGHTING"}
     elseif move.id=="SAND_ATTACK" then patch={type="GROUND"}
     elseif move.id=="GUST" then patch={type="FLYING"}
-    elseif move.id=="LICK" then patch={power=30}
+    elseif move.id=="LICK" then patch={type="GHOST", power=40, category="special"}
     elseif move.id=="LOW_KICK" then patch={power=60}
     elseif move.id=="SUBMISSION" then patch={accuracy=90} end
     if not patch then return move end
@@ -1122,6 +1124,50 @@ return function(mod)
         ow:flyTo(mapId)
       end})
     end
+  end
+
+  -- Use an unambiguous field action directly; otherwise retain the menu.
+  quickHMContextAction=function(game)
+    local ow=game.overworld
+    local player=ow and ow.player
+    if not (player and game.save and game.save.party and game.save.party[1]) then
+      return false
+    end
+
+    local available={}
+    for _,hm in ipairs(QUICK_HMS) do
+      available[hm.move]=quickHMAvailable(game,hm)
+    end
+
+    if available.CUT then
+      quickHMMove="CUT"
+      local reason=ow:useCutFieldMove()
+      quickHMMove=nil
+      if reason=="ok" then
+        runQuickHM(game,"CUT")
+        return true
+      end
+    end
+
+    if available.SURF then
+      quickHMMove="SURF"
+      local reason=ow:useSurfFieldMove()
+      quickHMMove=nil
+      if reason=="ok" or reason=="dismount" then
+        runQuickHM(game,"SURF")
+        return true
+      end
+    end
+
+    if available.STRENGTH and ow.pushableAtCell then
+      local x,y=player:facingCell()
+      if ow:pushableAtCell(x,y) then
+        if not ow.strengthActive then runQuickHM(game,"STRENGTH") end
+        return true
+      end
+    end
+
+    return false
   end
 
   mod.content.screens:register(QUICK_HM_SCREEN,{
@@ -1626,7 +1672,7 @@ return function(mod)
         local power=tonumber(def.power)
         local accuracy=tonumber(def.accuracy)
         if get("type_fixes") then
-          if selected.id=="LICK" then power=30
+          if selected.id=="LICK" then power=40
           elseif selected.id=="LOW_KICK" then power=60
           elseif selected.id=="SUBMISSION" then accuracy=90 end
         end
