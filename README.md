@@ -2,7 +2,7 @@
 
 myQualityOfLife is a configurable quality-of-life mod pack for Pokemon Gen 1 and the experimental Pokemon Gold support in Gen1Recomp. Every feature can be toggled on or off, so you are free to customize the experience however you prefer.
 
-Current release: **1.3.0-beta.18** (requires Gen1Recomp 0.1.79 or newer)
+Current release: **1.3.0-beta.23** (requires Gen1Recomp 0.1.80 or newer)
 
 > **Pokemon Gold / Gen 2 beta notice:** the Gen 2 features are implemented and
 > working in current tests. However, Pokemon Gold support in Gen1Recomp is still
@@ -58,8 +58,14 @@ Each participant completes its EXP, level-up, stat, and move-learning flow befor
 - **Move Editor - Off**: disables the Move Editor.
 - **Move Editor - Base**: allows moves from the Pokemon's Gen 1 level-up learnset and compatible TMs. HMs are excluded.
 - **Move Editor - All**: allows any move loaded by the game.
+- **Force Encounter**: enables a configurable keyboard/controller hotkey that immediately starts a wild encounter during free overworld control. The keyboard defaults to F6 and the controller defaults to Off.
+- **Wild Select - Off**: uses the current area's normal Pokemon and level.
+- **Wild Select - On**: replaces the species with the chosen Pokemon while preserving the level rolled from the current area.
+- **Wild Select - First**: replaces the species with the chosen Pokemon and uses the level of the first Pokemon in the player's party.
 
-The Move Editor shows each selected move's type, PP, power, and accuracy. Left and Right change pages; Up and Down move through the list.
+The Pokemon list is specific to the running generation. Scripted and special Gold encounters are not replaced.
+
+The Move Editor shows each selected move's type, PP, power, and accuracy. Left and Right change pages; holding either direction continues changing pages until released. Up and Down move through the list.
 
 ### Pokemon Options
 

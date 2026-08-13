@@ -11,10 +11,15 @@ return function(mod)
   local HOTKEY = "MQOL2Hotkey"
   local KEY_CAPTURE = "MQOL2KeyCapture"
   local PAD_CAPTURE = "MQOL2PadCapture"
+  local ENCOUNTER_HOTKEY = "MQOL2EncounterHotkey"
+  local ENCOUNTER_KEY_CAPTURE = "MQOL2EncounterKeyCapture"
+  local ENCOUNTER_PAD_CAPTURE = "MQOL2EncounterPadCapture"
+  local WILD_POKEMON = "MQOL2WildPokemon"
   local BAG_SORT_SCREEN = "MQOL2BagSort"
   local MOVE_SCREEN = "MQOL2MoveEditor"
   local PICK_SCREEN = "MQOL2MovePick"
   local moveTarget, moveSlot
+  local activeGame
   local syncForgetHM = function() end
 
   local DEFAULTS = {
@@ -25,6 +30,8 @@ return function(mod)
     quick_hm_hotkey = "shift", quick_hm_gamepad = "OFF",
     never_miss = false, always_crit = false, infinite_pp = false,
     always_catch = false, exp_multiplier = "OFF", move_editor = "OFF",
+    force_encounter = false, encounter_hotkey = "f6", encounter_gamepad = "OFF",
+    wild_select = "OFF", wild_pokemon = "RATTATA",
   }
   local MISC_KEYS = { "fast_run", "auto_run", "instant_text", "itemfinder",
     "fast_center", "fast_save", "bag_sort" }
@@ -32,9 +39,14 @@ return function(mod)
   local POKEMON_KEYS = { "forget_hm", "unlimited_tm", "quick_hm",
     "quick_hm_hotkey", "quick_hm_gamepad" }
   local CHEAT_KEYS = { "never_miss", "always_crit", "infinite_pp",
-    "always_catch", "exp_multiplier", "move_editor" }
+    "always_catch", "exp_multiplier", "move_editor", "force_encounter",
+    "encounter_hotkey", "encounter_gamepad", "wild_select", "wild_pokemon" }
 
-  local function get(key) return mod.save:get(key, DEFAULTS[key]) end
+  local function get(key)
+    local value=mod.save:get(key, DEFAULTS[key])
+    if key=="wild_select" and type(value)=="boolean" then return value and "ON" or "OFF" end
+    return value
+  end
   local function persist(game)
     if game and game.writeSave then pcall(function() game:writeSave() end) end
   end
@@ -83,6 +95,37 @@ return function(mod)
     menu.index = index
     local rows = tonumber(menu.rows) or 7
     menu.scroll = index > rows and index - rows or 0
+    return menu
+  end
+
+  local function pageAligned(menu)
+    local oldUpdate=menu.update
+    menu.update=function(self,dt)
+      local input=self.game and self.game.input
+      local direction
+      if input and input:wasPressed("left") then
+        direction=-1; self.mqolPageDir="left"; self.mqolPageFrames=0
+      elseif input and input:wasPressed("right") then
+        direction=1; self.mqolPageDir="right"; self.mqolPageFrames=0
+      elseif self.mqolPageDir and input and input:isDown(self.mqolPageDir) then
+        self.mqolPageFrames=(self.mqolPageFrames or 0)+1
+        if self.mqolPageFrames>=18 and (self.mqolPageFrames-18)%6==0 then
+          direction=self.mqolPageDir=="left" and -1 or 1
+        end
+      else
+        self.mqolPageDir=nil; self.mqolPageFrames=0
+      end
+      if direction then
+        self.index=math.max(1,math.min(#self.items,self.index+direction*self.rows))
+        self.scroll=math.floor((self.index-1)/self.rows)*self.rows
+        local enabled=self.pageJump; self.pageJump=false
+        local held=self.holdDir; self.holdDir=nil
+        oldUpdate(self,dt); self.pageJump=enabled
+        self.holdDir=held
+        return
+      end
+      return oldUpdate(self,dt)
+    end
     return menu
   end
 
@@ -191,17 +234,28 @@ return function(mod)
 
   mod.content.screens:register(CHEATS, { new=function(game)
     local menu
-    menu = mod.ui.ListMenu.new(game, "CHEATS - GOLD BETA", {
+    local items = {
       {label="NEVER MISS", right=boolText(get("never_miss")), value="never_miss"},
       {label="ALWAYS CRIT", right=boolText(get("always_crit")), value="always_crit"},
       {label="INFINITE PP", right=boolText(get("infinite_pp")), value="infinite_pp"},
       {label="ALWAYS CATCH", right=boolText(get("always_catch")), value="always_catch"},
       {label="EXP MULTIPLIER", right=get("exp_multiplier"), value="exp_multiplier"},
       {label="MOVE EDITOR", right=get("move_editor"), value="move_editor"},
-      {label="RESET DEFAULTS", value="reset"},
-    }, { onChoose=function(item)
+      {label="FORCE ENCOUNTER", right=boolText(get("force_encounter")), value="force_encounter"},
+    }
+    if get("force_encounter") then items[#items+1]={label="ENCOUNTER HOTKEY",right=hotkeyText(get("encounter_hotkey")),value="encounter_hotkey"} end
+    items[#items+1]={label="WILD SELECT",right=tostring(get("wild_select")),value="wild_select"}
+    if get("wild_select")~="OFF" then
+      local species=mod.content.pokemon:get(get("wild_pokemon"))
+      items[#items+1]={label="WILD POKEMON",right=(species and species.name) or tostring(get("wild_pokemon")),value="wild_pokemon"}
+    end
+    items[#items+1]={label="RESET DEFAULTS",value="reset"}
+    menu = mod.ui.ListMenu.new(game, "CHEATS - GOLD BETA", items, { onChoose=function(item)
       if item.value == "exp_multiplier" then cycle(game, item.value, {"OFF","2X","3X","4X"})
       elseif item.value == "move_editor" then cycle(game, item.value, {"OFF","BASE","TODOS"})
+      elseif item.value == "encounter_hotkey" then mod.ui.push(game, ENCOUNTER_HOTKEY); return
+      elseif item.value == "wild_pokemon" then mod.ui.push(game, WILD_POKEMON); return
+      elseif item.value == "wild_select" then cycle(game,item.value,{"OFF","ON","FIRST"})
       elseif item.value == "reset" then return confirm(game, "Reset CHEATS options\nto defaults?", function()
         resetKeys(game, CHEAT_KEYS); refresh(menu, game, CHEATS)
       end)
@@ -263,6 +317,66 @@ return function(mod)
     end
     return menu
   end })
+
+  mod.content.screens:register(WILD_POKEMON, { new=function(game)
+    local rows={}
+    for id,def in mod.content.pokemon:each() do
+      local dex=tonumber(def and def.dex)
+      if dex and dex>=1 and dex<=251 then
+        rows[#rows+1]={id=id,name=(def and def.name) or tostring(id),index=dex}
+      end
+    end
+    table.sort(rows,function(a,b) if a.index==b.index then return a.name<b.name end return a.index<b.index end)
+    local items={}
+    for _,row in ipairs(rows) do items[#items+1]={label=row.name,right=(row.id==get("wild_pokemon") and "SELECTED" or nil),value=row.id} end
+    local menu=mod.ui.ListMenu.new(game,"WILD POKEMON",items,{rows=7,pageJump=true,keyRepeat=true,onChoose=function(item)
+      if not item then return end
+      set(game,"wild_pokemon",item.value)
+      game.stack:pop()
+      local parent=game.stack:top()
+      refresh(parent,game,CHEATS)
+    end})
+    return pageAligned(menu)
+  end})
+
+  mod.content.screens:register(ENCOUNTER_HOTKEY, { new=function(game)
+    local items={{label="KEYBOARD",right=hotkeyText(get("encounter_hotkey")),value="key"},
+      {label="CONTROLLER",right=gamepadText(get("encounter_gamepad")),value="pad"}}
+    if get("encounter_gamepad")~="OFF" then items[#items+1]={label="DISABLE CONTROLLER",value="disable"} end
+    local menu
+    menu=mod.ui.ListMenu.new(game,"ENCOUNTER HOTKEY",items,{onChoose=function(item)
+      if item.value=="key" then mod.ui.push(game,ENCOUNTER_KEY_CAPTURE)
+      elseif item.value=="pad" then mod.ui.push(game,ENCOUNTER_PAD_CAPTURE)
+      else set(game,"encounter_gamepad","OFF"); refresh(menu,game,ENCOUNTER_HOTKEY) end
+    end})
+    return menu
+  end})
+
+  mod.content.screens:register(ENCOUNTER_KEY_CAPTURE, { new=function(game)
+    local menu=mod.ui.ListMenu.new(game,"KEYBOARD HOTKEY",{{label="PRESS A KEY"},{label="ESC TO CANCEL"}},{rows=2})
+    menu.mqol2EncounterKeyCapture=true
+    menu.onKeyPressed=function(self,key)
+      if key=="escape" or key=="backspace" then game.stack:pop(); return end
+      if key=="lshift" or key=="rshift" then key="shift" end
+      if blockedKeys[key] then self.items[1].label="KEY NOT AVAILABLE"; return end
+      set(game,"encounter_hotkey",key); game.stack:pop(); game.stack:pop(); mod.ui.push(game,ENCOUNTER_HOTKEY)
+    end
+    return menu
+  end})
+
+  mod.content.screens:register(ENCOUNTER_PAD_CAPTURE, { new=function(game)
+    local menu=mod.ui.ListMenu.new(game,"CONTROLLER HOTKEY",{{label="PRESS A BUTTON"},{label="B TO CANCEL"}},{rows=2})
+    menu.mqol2EncounterCapture=true
+    menu.onGamepadPressed=function(self,button)
+      if button=="b" then game.stack:pop(); return end
+      set(game,"encounter_gamepad",button); game.stack:pop(); game.stack:pop(); mod.ui.push(game,ENCOUNTER_HOTKEY)
+    end
+    menu.onGamepadAxis=function(self,axis,value)
+      if (axis~="triggerleft" and axis~="triggerright") or value<0.65 then return end
+      set(game,"encounter_gamepad","axis:"..axis); game.stack:pop(); game.stack:pop(); mod.ui.push(game,ENCOUNTER_HOTKEY)
+    end
+    return menu
+  end})
 
   mod.content.screens:register(BAG_SORT_SCREEN, { new=function(game)
     local current = get("bag_sort")
@@ -340,25 +454,7 @@ return function(mod)
         game.stack:pop(); mod.ui.push(game, MOVE_SCREEN)
       end,
     })
-    local oldUpdate = menu.update
-    menu.update = function(self, dt)
-      local input = self.game and self.game.input
-      local pageDirection = input and input:wasPressed("left") and -1
-        or input and input:wasPressed("right") and 1 or nil
-      if pageDirection then
-        self.index = math.max(1, math.min(#self.items, self.index + pageDirection * self.rows))
-        -- Page changes align the selected page with the top of the list instead
-        -- of exposing only item 6 on the last row of the previous page.
-        self.scroll = math.floor((self.index - 1) / self.rows) * self.rows
-        local enabled = self.pageJump
-        self.pageJump = false
-        oldUpdate(self, dt)
-        self.pageJump = enabled
-        return
-      end
-      return oldUpdate(self, dt)
-    end
-    return menu
+    return pageAligned(menu)
   end })
   mod.hooks:wrap("ui.party.submenu", function(next, game, items, mon, ctx)
     local out = next(game, items, mon, ctx)
@@ -683,6 +779,55 @@ return function(mod)
     game.stack:push(newQuickHMMenu(game))
     return true
   end
+
+  local function forceWildEncounter(game)
+    activeGame=game
+    if not get("force_encounter") or not game.world then return false end
+    if game.stack and game.stack:top() then return false end
+    local world=game.world
+    if world.battleActive or world:busy() or (world.player and world.player.moving) then return false end
+    if tostring(get("wild_select") or "OFF")~="FIRST" then
+      local Encounter=require("src.battle.gen2.Encounter")
+      local oldTriggers=Encounter.triggers
+      local oldCooldown=world.wildCooldownStep
+      local oldRepel=world.repelSuppresses
+      Encounter.triggers=function() return true end
+      world.wildCooldownStep=function() return false end
+      world.repelSuppresses=function() return false end
+      local ok,result=pcall(function() return world:tryWildEncounter() end)
+      Encounter.triggers=oldTriggers
+      world.wildCooldownStep=oldCooldown
+      world.repelSuppresses=oldRepel
+      return ok and result==true
+    end
+    local species=tostring(get("wild_pokemon") or "RATTATA")
+    if not mod.content.pokemon:get(species) then species="RATTATA" end
+    local lead=game.save and game.save.party and game.save.party[1]
+    local level=math.max(2,math.min(100,tonumber(lead and lead.level) or 5))
+    local Mon=require("src.battle.gen2.Mon")
+    local wild=Mon.new(game.data,species,level)
+    if not wild then return false end
+    game.save.pokedex=game.save.pokedex or {seen={},caught={}}
+    game.save.pokedex.seen[species]=true
+    return world:startBattle({wild=wild}) and true or false
+  end
+
+  mod.hooks:wrap("encounter.species",function(next,enc,ctx)
+    local out=next(enc,ctx)
+    local mode=tostring(get("wild_select") or "OFF")
+    if mode=="OFF" or not out or (ctx and ctx.kind and ctx.kind~="wild") then return out end
+    local species=tostring(get("wild_pokemon") or "RATTATA")
+    if not mod.content.pokemon:get(species) then return out end
+    local copy={}
+    for key,value in pairs(out) do copy[key]=value end
+    copy.species=species
+    if mode=="FIRST" then
+      local lead=activeGame and activeGame.save and activeGame.save.party and activeGame.save.party[1]
+      copy.level=math.max(2,math.min(100,tonumber(lead and lead.level) or tonumber(copy.level) or 5))
+    end
+    return copy
+  end)
+
   local Game2 = require("src.core.Game2")
   local StartMenu = require("src.ui.gen2.StartMenu")
   local oldStartMenuChoose = StartMenu.choose
@@ -710,10 +855,14 @@ return function(mod)
   local oldKeypressed = Game2.keypressed
   Game2.keypressed = function(self, key)
     local top = self.stack and self.stack:top()
+    if top and top.mqol2EncounterKeyCapture and top.onKeyPressed then top:onKeyPressed(key); return end
     if top and top.mqol2KeyCapture and top.onKeyPressed then
       top:onKeyPressed(key)
       return
     end
+    local encounterKey=tostring(get("encounter_hotkey") or "f6")
+    local encounterMatch=(encounterKey=="shift" and (key=="lshift" or key=="rshift")) or key==encounterKey
+    if encounterMatch and forceWildEncounter(self) then return end
     local configured = tostring(get("quick_hm_hotkey") or "shift")
     local match = (configured == "shift" and (key == "lshift" or key == "rshift")) or key == configured
     if match then
@@ -724,13 +873,16 @@ return function(mod)
   local oldGamepadpressed = Game2.gamepadpressed
   Game2.gamepadpressed = function(self, joystick, button)
     local top = self.stack and self.stack:top()
+    if top and top.mqol2EncounterCapture and top.onGamepadPressed then top:onGamepadPressed(button); return end
     if top and top.mqol2Capture and top.onGamepadPressed then top:onGamepadPressed(button); return end
+    if tostring(get("encounter_gamepad"))==button and forceWildEncounter(self) then return end
     if tostring(get("quick_hm_gamepad")) == button and openQuickHM(self) then return end
     return oldGamepadpressed(self, joystick, button)
   end
   local oldGamepadaxis = Game2.gamepadaxis
   Game2.gamepadaxis = function(self, joystick, axis, value)
     local top = self.stack and self.stack:top()
+    if top and top.mqol2EncounterCapture and top.onGamepadAxis then top:onGamepadAxis(axis,value); return end
     if top and top.mqol2Capture and top.onGamepadAxis then
       top:onGamepadAxis(axis, value)
       return
@@ -738,9 +890,16 @@ return function(mod)
     self.mqolTriggerLatch = self.mqolTriggerLatch or {}
     if axis == "triggerleft" or axis == "triggerright" then
       local configured = tostring(get("quick_hm_gamepad") or "OFF")
+      local encounterConfigured=tostring(get("encounter_gamepad") or "OFF")
       local key = "axis:" .. axis
       local down = value >= 0.65
       if value <= 0.35 then self.mqolTriggerLatch[axis] = false end
+      self.mqolEncounterTriggerLatch=self.mqolEncounterTriggerLatch or {}
+      if value<=0.35 then self.mqolEncounterTriggerLatch[axis]=false end
+      if encounterConfigured==key and down and not self.mqolEncounterTriggerLatch[axis] then
+        self.mqolEncounterTriggerLatch[axis]=true
+        if forceWildEncounter(self) then return end
+      end
       if configured == key and down and not self.mqolTriggerLatch[axis] then
         self.mqolTriggerLatch[axis] = true
         if openQuickHM(self) then return end
@@ -754,6 +913,28 @@ return function(mod)
   -- hook; unlike replacing Game2.update, this seam remains active after the
   -- mod loader finishes composing the Gold runtime.
   mod.hooks:wrap("core.update", function(next, game, dt)
+    activeGame=game
+    local encounterKey=tostring(get("encounter_hotkey") or "f6")
+    local encounterKeyDown=false
+    if get("force_encounter") and love and love.keyboard and love.keyboard.isDown then
+      if encounterKey=="shift" then encounterKeyDown=love.keyboard.isDown("lshift","rshift")
+      elseif encounterKey~="OFF" then encounterKeyDown=love.keyboard.isDown(encounterKey) end
+    end
+    local encounterPadDown=false
+    local encounterPad=tostring(get("encounter_gamepad") or "OFF")
+    if get("force_encounter") and encounterPad~="OFF" and love and love.joystick and love.joystick.getJoysticks then
+      for _,joystick in ipairs(love.joystick.getJoysticks()) do
+        if encounterPad:sub(1,5)=="axis:" then
+          local axis=encounterPad:sub(6)
+          encounterPadDown=joystick.getGamepadAxis and joystick:getGamepadAxis(axis)>=0.65
+        else encounterPadDown=joystick.isGamepadDown and joystick:isGamepadDown(encounterPad) end
+        if encounterPadDown then break end
+      end
+    end
+    local encounterDown=encounterKeyDown or encounterPadDown
+    if encounterDown and not game.mqolEncounterLatch then forceWildEncounter(game) end
+    game.mqolEncounterLatch=encounterDown
+
     local configuredKey = tostring(get("quick_hm_hotkey") or "shift")
     local keyDown = false
     if love and love.keyboard and love.keyboard.isDown then

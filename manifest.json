@@ -1,7 +1,7 @@
 {
   "id": "myQualityOfLife",
   "name": "myQualityOfLife",
-  "version": "1.3.0-beta.18",
+  "version": "1.3.0-beta.23",
   "api": 2,
   "entry": "main.lua",
   "games": ["gen1", "gen2"],
