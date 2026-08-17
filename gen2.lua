@@ -20,16 +20,13 @@ return function(mod)
   local PICK_SCREEN = "MQOL2MovePick"
   local moveTarget, moveSlot
   local activeGame
-  local forcedEncounterLevel
-  local forcedEncounterSpecies
-  local forcedEncounterLevels
   local syncForgetHM = function() end
 
   local DEFAULTS = {
     fast_run = "OFF", auto_run = false, instant_text = false,
     itemfinder = "OFF", fast_center = false, fast_save = false,
     bag_sort = "OFF", exp_share = "OFF", move_info = false,
-    forget_hm = false, unlimited_tm = false, quick_hm = "OFF",
+    forget_hm = false, unlimited_tm = false, quick_hm = "OFF", max_dv = false,
     quick_hm_hotkey = "shift", quick_hm_gamepad = "OFF",
     never_miss = false, always_crit = false, infinite_pp = false,
     always_catch = false, exp_multiplier = "OFF", game_corner_multiplier = "OFF",
@@ -40,7 +37,7 @@ return function(mod)
   local MISC_KEYS = { "fast_run", "auto_run", "instant_text", "itemfinder",
     "fast_center", "fast_save", "bag_sort" }
   local BATTLE_KEYS = { "exp_share", "move_info" }
-  local POKEMON_KEYS = { "forget_hm", "unlimited_tm", "quick_hm",
+  local POKEMON_KEYS = { "forget_hm", "unlimited_tm", "quick_hm", "max_dv",
     "quick_hm_hotkey", "quick_hm_gamepad" }
   local CHEAT_KEYS = { "never_miss", "always_crit", "infinite_pp",
     "always_catch", "exp_multiplier", "game_corner_multiplier", "challenge_mode", "move_editor", "force_encounter",
@@ -278,6 +275,7 @@ return function(mod)
       {label="FORGET HM", right=boolText(get("forget_hm")), value="forget_hm"},
       {label="REUSABLE TMS", right=boolText(get("unlimited_tm")), value="unlimited_tm"},
       {label="QUICK HM", right=get("quick_hm"), value="quick_hm"},
+      {label="MAX DV", right=boolText(get("max_dv")), value="max_dv"},
     }
     if get("quick_hm") ~= "OFF" then
       items[#items+1] = {label="HM HOTKEY", right=hotkeyText(get("quick_hm_hotkey")), value="hotkey"}
@@ -478,21 +476,44 @@ return function(mod)
   end
   local function baseMoveSet(game, mon)
     local set = {}
-    local species = mon and game.data and game.data.pokemon and game.data.pokemon[mon.species]
-    -- Gold stores every natural move in levelMoves (including level 1), and
-    -- breeding moves separately in eggMoves. Keep the Gen 1 field probes as
-    -- harmless compatibility fallbacks for custom hybrid registries.
-    for _, row in ipairs((species and species.levelMoves) or {}) do
-      local id = type(row) == "table" and row.move or row
-      if id then set[id] = true end
+    local pokemon=game.data and game.data.pokemon
+    local start=mon and mon.species
+    local family,seen={},{}
+    -- Egg moves are stored on the basic species in Gold. Walk every reverse
+    -- evolution edge so an evolved Pokemon keeps the complete legal inherited
+    -- learnset (for example Flaaffy inherits Mareep's THUNDERBOLT egg move).
+    local function addAncestors(speciesId)
+      if not speciesId or seen[speciesId] then return end
+      seen[speciesId]=true
+      local def=pokemon and pokemon[speciesId]
+      if type(def)=="table" then family[#family+1]=def end
+      for candidateId,candidate in pairs(pokemon or {}) do
+        if type(candidate)=="table" then
+          for _,evolution in ipairs(candidate.evolutions or {}) do
+            if type(evolution)=="table" and evolution.into==speciesId then
+              addAncestors(candidateId)
+            end
+          end
+        end
+      end
     end
-    for _, id in ipairs((species and species.eggMoves) or {}) do set[id] = true end
-    for _, id in ipairs((species and species.level1Moves) or {}) do set[id] = true end
-    for _, row in ipairs((species and species.learnset) or {}) do
-      local id = type(row) == "table" and row.move or row
-      if id then set[id] = true end
+    addAncestors(start)
+    local function addRows(rows)
+      for _,row in ipairs(rows or {}) do
+        local id=type(row)=="table" and (row.move or row.id) or row
+        if id then set[id]=true end
+      end
     end
-    for _, id in ipairs((species and species.tmhm) or {}) do set[id] = true end
+    for _,species in ipairs(family) do
+      -- Gold stores every natural move in levelMoves (including level 1), and
+      -- breeding moves separately in eggMoves. The fallback fields keep the
+      -- editor compatible with patched/custom registries.
+      addRows(species.levelMoves)
+      addRows(species.eggMoves)
+      addRows(species.level1Moves)
+      addRows(species.learnset)
+      addRows(species.tmhm)
+    end
     return set
   end
   mod.content.screens:register(MOVE_SCREEN, { new=function(game)
@@ -511,7 +532,13 @@ return function(mod)
     local allowed = get("move_editor") == "BASE" and baseMoveSet(game, moveTarget) or nil
     local rows = {}
     for id, def in mod.content.moves:each() do
-      if not allowed or allowed[id] then rows[#rows+1] = {id=id, name=(def and def.name) or tostring(id)} end
+      -- Gold's generated moves table also carries top-level metadata such as
+      -- `generation = 2` and `source = "ROM:Moves + MoveNames"`. The registry
+      -- iterator exposes those keys beside real records, so TODOS must reject
+      -- non-table values before reading def.name.
+      if type(def)=="table" and (not allowed or allowed[id]) then
+        rows[#rows+1]={id=id,name=tostring(def.name or id)}
+      end
     end
     table.sort(rows, function(a,b) return a.name == b.name and tostring(a.id) < tostring(b.id) or a.name < b.name end)
     local items = {}; for _, row in ipairs(rows) do items[#items+1] = {label=row.name, value=row.id} end
@@ -529,16 +556,19 @@ return function(mod)
     })
     return pageAligned(menu)
   end })
+
   mod.hooks:wrap("ui.party.submenu", function(next, game, items, mon, ctx)
     local out = next(game, items, mon, ctx)
     if type(out) ~= "table" then out = items end
-    if get("move_editor") == "OFF" or (ctx and ctx.battle) then return out end
-    out[#out+1] = { id="MQOL_MOVE_EDITOR", label="MOVE EDITOR",
-      onSelect=function(selectedMon, selectedGame)
-        moveTarget, moveSlot = selectedMon, nil
-        if selectedGame.stack then selectedGame.stack:pop() end
-        mod.ui.push(selectedGame, MOVE_SCREEN)
-      end }
+    if ctx and ctx.battle then return out end
+    if get("move_editor") ~= "OFF" then
+      out[#out+1] = { id="MQOL_MOVE_EDITOR", label="MOVE EDITOR",
+        onSelect=function(selectedMon, selectedGame)
+          moveTarget, moveSlot = selectedMon, nil
+          if selectedGame.stack then selectedGame.stack:pop() end
+          mod.ui.push(selectedGame, MOVE_SCREEN)
+        end }
+    end
     return out
   end)
 
@@ -586,6 +616,25 @@ return function(mod)
     return math.max(0, math.floor((tonumber(amount) or 0) * multiplier))
   end)
 
+  -- The QoL share divides EXP points but awards the defeated Pokemon's full
+  -- Stat Experience to every recipient. Temporarily replace only the Gen 2
+  -- Stat Exp calculation while applyShare performs its synchronous pass; this
+  -- leaves the native OFF mode and unrelated awards untouched.
+  local function applyFullStatShare(ctx,mon,split)
+    local okModule,Mon=pcall(require,"src.battle.gen2.Mon")
+    if not (okModule and Mon and Mon.gainStatExp) then
+      return ctx.applyShare(mon,split)
+    end
+    local nativeGain=Mon.gainStatExp
+    Mon.gainStatExp=function(target,def,_participants,doubled,_halved)
+      return nativeGain(target,def,1,doubled,false)
+    end
+    local ok,result=pcall(ctx.applyShare,mon,split)
+    Mon.gainStatExp=nativeGain
+    if not ok then error(result) end
+    return result
+  end
+
   -- Gen1 mode: half for battlers and half for nonparticipants. Smart pays the
   -- shared half only to the lowest-level eligible group, snapshotted first.
   mod.hooks:wrap("battle.exp_award", function(next, ctx)
@@ -599,8 +648,7 @@ return function(mod)
         others[#others+1] = mon
       end
     end
-    if #others == 0 then return next(ctx) end
-    if mode == "SMART" then
+    if mode == "SMART" and #others>0 then
       local lowest = 101
       for _, mon in ipairs(others) do lowest = math.min(lowest, mon.level or 1) end
       local filtered = {}
@@ -608,8 +656,11 @@ return function(mod)
       others = filtered
     end
     local nativeHalf = ctx.halved and 1 or 2
-    local participantDivisor = nativeHalf * math.max(1, #(ctx.alive or {}))
-    for _, mon in ipairs(ctx.alive or {}) do ctx.applyShare(mon, participantDivisor) end
+    -- With no shared recipients there is no second half to reserve: preserve
+    -- the native full participant award instead of discarding 50 percent.
+    local participantTax = #others>0 and nativeHalf or 1
+    local participantDivisor = participantTax * math.max(1, #(ctx.alive or {}))
+    for _, mon in ipairs(ctx.alive or {}) do applyFullStatShare(ctx,mon,participantDivisor) end
     local sharedDivisor = nativeHalf * #others
     -- Keep each participant's native EXP flow, then summarize the inactive
     -- recipients once. Their level/stat/move events remain individual and in
@@ -620,7 +671,7 @@ return function(mod)
     for _, mon in ipairs(others) do
       local events = battle.events
       local first = #events + 1
-      ctx.applyShare(mon, sharedDivisor)
+      applyFullStatShare(ctx,mon,sharedDivisor)
       local kept, amount = {}, nil
       for index = first, #events do
         local event = events[index]
@@ -730,6 +781,27 @@ return function(mod)
     local user = ev.user
     for _, move in ipairs((user and user.moves) or {}) do
       if move.id == ev.moveId then move.pp = move.maxPp or move.pp; break end
+    end
+  end)
+
+  -- pokemon.caught is emitted after the captured mon has reached its final
+  -- party/box destination, so changing this object updates the stored catch as
+  -- well. HP DV is derived automatically from these four odd values (15).
+  mod.events:on("pokemon.caught", function(ev)
+    if not get("max_dv") or not ev or type(ev.mon)~="table" then return end
+    local mon,game=ev.mon,ev.game or activeGame
+    local oldHp=tonumber(mon.hp)
+    local oldMax=tonumber(mon.maxHp) or (mon.stats and tonumber(mon.stats.hp))
+    mon.dvs={attack=15,defense=15,speed=15,special=15}
+    local ok,Mon=pcall(require,"src.battle.gen2.Mon")
+    if ok and Mon then
+      if Mon.syncIdentity then pcall(Mon.syncIdentity,mon,game and game.data) end
+      if Mon.refreshStats then pcall(Mon.refreshStats,mon,game and game.data) end
+    end
+    local newMax=tonumber(mon.maxHp) or (mon.stats and tonumber(mon.stats.hp))
+    if oldHp and oldMax and oldMax>0 and newMax then
+      if oldHp<=0 then mon.hp=0
+      else mon.hp=math.max(1,math.min(newMax,math.floor(oldHp*newMax/oldMax+0.5))) end
     end
   end)
 
@@ -937,24 +1009,37 @@ return function(mod)
     if game.stack and game.stack:top() then return false end
     local world=game.world
     if world.battleActive or world:busy() or (world.player and world.player.moving) then return false end
-    local Encounter=require("src.battle.gen2.Encounter")
-    local oldTriggers=Encounter.triggers
-    local oldCooldown=world.wildCooldownStep
-    local oldRepel=world.repelSuppresses
-    Encounter.triggers=function() return true end
-    world.wildCooldownStep=function() return false end
-    world.repelSuppresses=function() return false end
-    forcedEncounterLevel=get("force_encounter")=="FIRST" and "FIRST" or "AREA"
-    forcedEncounterSpecies=species
-    forcedEncounterLevels=levels
-    local ok,result=pcall(function() return world:tryWildEncounter() end)
-    forcedEncounterLevel=nil
-    forcedEncounterSpecies=nil
-    forcedEncounterLevels=nil
-    Encounter.triggers=oldTriggers
-    world.wildCooldownStep=oldCooldown
-    world.repelSuppresses=oldRepel
-    return ok and result==true
+    if not mod.content.pokemon:get(species) then return false end
+    local lead=game.save and game.save.party and game.save.party[1]
+    local level
+    if get("force_encounter")=="FIRST" then
+      level=tonumber(lead and lead.level) or 5
+    elseif levels and #levels>0 then
+      level=tonumber(levels[love.math.random(#levels)]) or 5
+    else
+      level=tonumber(lead and lead.level) or 5
+    end
+    local challenge=tostring(get("challenge_mode") or "OFF")
+    if challenge~="OFF" then
+      local highest=1
+      for _,mon in ipairs((game.save and game.save.party) or {}) do
+        highest=math.max(highest,tonumber(mon.level) or 1)
+      end
+      local bonus=tonumber(challenge:match("^%+(%d+)$")) or 0
+      level=highest+bonus
+    end
+    level=math.max(2,math.min(100,level))
+    -- Start the selected battle directly. Going through tryWildEncounter
+    -- would let Repel, encounter-rate hooks, or another mod's encounter
+    -- suppression cancel a cheat that the player explicitly triggered.
+    local Mon=require("src.battle.gen2.Mon")
+    local wild=Mon.new(game.data,species,level)
+    if not wild then return false end
+    game.save.pokedex=game.save.pokedex or {seen={},caught={}}
+    game.save.pokedex.seen=game.save.pokedex.seen or {}
+    game.save.pokedex.seen[species]=true
+    world:startBattle({wild=wild})
+    return true
   end
 
   local function beginForcedRoamer(game,index)
@@ -1019,7 +1104,8 @@ return function(mod)
     if not slots then return nil end
     local choices,seen={},{}
     for _,slot in ipairs(slots) do
-      if slot and slot.species and slot.species~="NO_ITEM" then
+      if slot and slot.species and slot.species~="NO_ITEM"
+          and mod.content.pokemon:get(slot.species) then
         local choice=seen[slot.species]
         if not choice then
           local def=mod.content.pokemon:get(slot.species)
@@ -1070,7 +1156,7 @@ return function(mod)
     local state={isOpaque=false}
     local rows=math.min(6,#items)
     state.list=Chrome.List.new({
-      items=items,x=8,y=3,spacing=2,rows=rows,wrap=true,
+      items=items,x=5,y=3,spacing=2,rows=rows,wrap=true,
       onChoose=function(choice)
         if not choice then return end
         game.stack:pop()
@@ -1081,8 +1167,8 @@ return function(mod)
     })
     state.update=function(self) self.list:update(game.input) end
     state.draw=function(self)
-      Chrome.box(6,0,14,math.min(17,4+rows*2))
-      Chrome.print(terrain.." POKEMON",8,1)
+      Chrome.box(3,0,17,math.min(17,4+rows*2))
+      Chrome.print(terrain.." POKEMON",5,1)
       self.list:draw()
     end
     game.stack:push(state)
@@ -1093,30 +1179,15 @@ return function(mod)
     local out=next(enc,ctx)
     local challenge=tostring(get("challenge_mode") or "OFF")
     if not out or (ctx and ctx.kind and ctx.kind~="wild") then return out end
-    if not forcedEncounterSpecies
-        and forcedEncounterLevel~="FIRST" and challenge=="OFF" then return out end
+    if challenge=="OFF" then return out end
     local copy={}
     for key,value in pairs(out) do copy[key]=value end
-    if forcedEncounterSpecies and mod.content.pokemon:get(forcedEncounterSpecies) then
-      copy.species=forcedEncounterSpecies
+    local highest=1
+    for _,mon in ipairs((activeGame and activeGame.save and activeGame.save.party) or {}) do
+      highest=math.max(highest,tonumber(mon.level) or 1)
     end
-    if forcedEncounterLevel=="AREA" and forcedEncounterLevels
-        and #forcedEncounterLevels>0 then
-      copy.level=math.max(2,math.min(100,tonumber(
-        forcedEncounterLevels[love.math.random(#forcedEncounterLevels)]) or 5))
-    end
-    if forcedEncounterLevel=="FIRST" then
-      local lead=activeGame and activeGame.save and activeGame.save.party and activeGame.save.party[1]
-      copy.level=math.max(2,math.min(100,tonumber(lead and lead.level) or tonumber(copy.level) or 5))
-    end
-    if challenge~="OFF" then
-      local highest=1
-      for _,mon in ipairs((activeGame and activeGame.save and activeGame.save.party) or {}) do
-        highest=math.max(highest,tonumber(mon.level) or 1)
-      end
-      local bonus=tonumber(challenge:match("^%+(%d+)$")) or 0
-      copy.level=math.min(100,highest+bonus)
-    end
+    local bonus=tonumber(challenge:match("^%+(%d+)$")) or 0
+    copy.level=math.min(100,highest+bonus)
     return copy
   end)
 

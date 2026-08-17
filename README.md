@@ -2,11 +2,13 @@
 
 myQualityOfLife is a configurable quality-of-life mod pack for Pokemon Gen 1 and the experimental Pokemon Gold support in Gen1Recomp. Every feature can be toggled on or off, so you are free to customize the experience however you prefer.
 
-Current release: **1.3.0-beta.43** (requires Gen1Recomp 0.1.86 or newer)
+Current release: **1.3.0-beta.50** (requires Gen1Recomp 0.1.86 or newer)
 
 All myQualityOfLife menus use continuous vertical navigation: pressing Up on the first row selects the last row, and pressing Down on the last row returns to the first. Settings can be changed with either Left/Right or the confirm button. In paginated lists, Left/Right remain reserved for changing pages.
 
 Force Encounter is activated from its configured hotkey and only works on valid grass, water, or cave encounter terrain. With Wild Select OFF, it opens a compact picker containing every species available for that terrain. On water, the picker combines Surf encounters with the Old Rod, Good Rod, and Super Rod fishing lists for that map, removing duplicate species. Pokemon Gold combines morning, day, and night species on land. With Wild Select ON, the picker is skipped and the configured Pokemon is encountered immediately. Wild Select does not alter ordinary random encounters. Force Encounter ON uses an area level, while FIRST uses the lead Pokemon's level.
+
+Because Force Encounter is an explicit cheat action, it starts the selected battle directly and is not blocked by Repel, disabled random encounters, encounter-rate changes, or another mod suppressing ordinary encounter rolls.
 
 In Pokemon Gold, an active roaming Raikou, Entei, or Suicune is added to the Force Encounter picker only while it is actually on the player's current map. Roamers never appear in the water list, and selecting one preserves its native level, roaming identity, stored HP, DVs, and normal post-battle movement/capture behavior.
 
@@ -54,6 +56,12 @@ All features are disabled by default.
 Fainted Pokemon and level 100 Pokemon do not receive shared experience. Level-ups, stat increases, and learned moves still use the normal Gen1Recomp flow.
 Each participant completes its EXP, level-up, stat, and move-learning flow before the next participant. The shared summary then reports the per-Pokemon amount (for example, `2 POKEMON gained 25 EXP!`) before shared recipients begin their own level-up flows. Shared recipients receive equal awards; any division remainder is added to the primary participant's award.
 
+In both Gen 1 and Pokemon Gold, EXP points remain divided normally, but every
+participant and shared recipient receives the defeated Pokemon's full base Stat
+Experience in each stat. For example, if the defeated Pokemon awards 100 Attack
+Stat Exp, every eligible recipient gains 100 Attack Stat Exp. In Gold, Pokerus
+still doubles the individual full award. The native per-stat limit remains 65535.
+
 ### Cheats
 
 - **Never Miss**: prevents the player's attacks from missing.
@@ -68,7 +76,10 @@ Each participant completes its EXP, level-up, stat, and move-learning flow befor
 
 Challenge Mode applies to regular trainers, rivals, Gym Leaders and the Elite Four. An opponent already above the calculated target keeps its original level. Special scripted wild encounters in Gold are not changed.
 - **Move Editor - Off**: disables the Move Editor.
-- **Move Editor - Base**: allows moves from the Pokemon's Gen 1 level-up learnset and compatible TMs. HMs are excluded.
+- **Move Editor - Base**: allows moves from the Pokemon's level-up learnset,
+  inherited pre-evolution learnsets, egg moves and compatible TMs. In Gold,
+  evolved Pokemon correctly inherit egg moves stored on the family's basic
+  species, such as Flaaffy inheriting Mareep's Thunderbolt.
 - **Move Editor - All**: allows any move loaded by the game.
 - **Force Encounter - Off**: disables the forced-encounter hotkey.
 - **Force Encounter - On**: immediately starts a wild encounter using the level rolled from the current area.
@@ -86,6 +97,10 @@ The Move Editor shows each selected move's type, PP, power, and accuracy. Left a
 
 - **Forget HM**: allows HM moves to be forgotten.
 - **Reusable TMs**: prevents TMs from being consumed after use.
+- **Max DV**: every newly captured Pokemon receives 15 in
+  Attack, Defense, Speed and Special DV. This also produces the maximum derived
+  HP DV. Existing Pokemon, eggs and Pokemon received through trades or scripts
+  are not changed.
 - **Quick HM - Off**: disables Quick HM.
 - **Quick HM - On**: allows field moves without teaching them to a Pokemon, while still requiring the correct HM and badge. In Gen 1, Quick HM is accessed exclusively through its configured hotkey and is not added to the START menu.
 - **Quick HM - Ignore**: enables all five field HMs without requiring the HM item or badge.

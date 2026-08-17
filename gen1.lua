@@ -50,13 +50,14 @@ return function(mod)
     quick_hm = "OFF",          -- OFF / ON / IGNORE
     quick_hm_hotkey = "shift",
     quick_hm_gamepad = "OFF",
+    max_dv = false,
     bag_sort = "OFF",          -- OFF / NAME / QUANTITY / TYPE
     pikachu_evo = false,
   }
 
   local MISC_KEYS = { "fast_run", "auto_run", "instant_text", "itemfinder", "type_fixes", "fast_center", "fast_save", "bag_sort" }
   local BATTLE_KEYS = { "exp_share", "move_info" }
-  local POKEMON_KEYS = { "forget_hm", "unlimited_tm", "quick_hm", "quick_hm_hotkey", "quick_hm_gamepad", "pikachu_evo" }
+  local POKEMON_KEYS = { "forget_hm", "unlimited_tm", "quick_hm", "quick_hm_hotkey", "quick_hm_gamepad", "max_dv", "pikachu_evo" }
   local CHEAT_KEYS = { "never_miss", "always_crit", "infinite_pp", "always_catch", "exp_multiplier", "game_corner_multiplier", "challenge_mode", "move_editor",
     "force_encounter", "encounter_hotkey", "encounter_gamepad", "wild_select", "wild_pokemon" }
 
@@ -361,11 +362,39 @@ return function(mod)
     for _, id in ipairs(def.tmhm or {}) do if not HM_MOVES[id] then set[id] = true end end
   end
 
+  local function addNaturalMoves(set,def)
+    if type(def)~="table" then return end
+    for _,id in ipairs(def.level1Moves or {}) do set[id]=true end
+    for _,row in ipairs(def.learnset or {}) do
+      local id=type(row)=="table" and (row.move or row.id) or row
+      if id then set[id]=true end
+    end
+  end
+
+  local function addPreEvolutionMoves(set,pokemon,speciesId,seen)
+    if type(pokemon)~="table" or not speciesId then return end
+    seen=seen or {}
+    if seen[speciesId] then return end
+    seen[speciesId]=true
+    for candidateId,candidate in pairs(pokemon) do
+      if type(candidate)=="table" then
+        for _,evolution in ipairs(candidate.evolutions or {}) do
+          local target=type(evolution)=="table" and (evolution.species or evolution.into)
+          if target==speciesId then
+            addNaturalMoves(set,candidate)
+            addPreEvolutionMoves(set,pokemon,candidateId,seen)
+          end
+        end
+      end
+    end
+  end
+
   local function baseMoves(game, mon)
     local set = {}
     local data = game and game.data
     if not data or not data.pokemon or not mon then return set end
     addLearnset(set, data.pokemon[mon.species])
+    addPreEvolutionMoves(set,data.pokemon,mon.species)
     -- Forward-compatible probes for caches/builds exposing R/B/Y side tables.
     local candidates = {
       data.pokemon_red, data.pokemon_blue, data.pokemon_yellow,
@@ -376,7 +405,10 @@ return function(mod)
       data.versions and data.versions.yellow and data.versions.yellow.pokemon,
     }
     for _, tbl in ipairs(candidates) do
-      if type(tbl) == "table" then addLearnset(set, tbl[mon.species]) end
+      if type(tbl) == "table" then
+        addLearnset(set, tbl[mon.species])
+        addPreEvolutionMoves(set,tbl,mon.species)
+      end
     end
     for id in pairs(HM_MOVES) do set[id] = nil end
     return set
@@ -481,6 +513,7 @@ return function(mod)
         {label="FORGET HM", right=boolText(get("forget_hm")), value="forget_hm"},
         {label="REUSABLE TMS", right=boolText(get("unlimited_tm")), value="unlimited_tm"},
         {label="QUICK HM", right=tostring(get("quick_hm")), value="quick_hm"},
+        {label="MAX DV", right=boolText(get("max_dv")), value="max_dv"},
       }
       if get("quick_hm")~="OFF" then
         items[#items+1]={label="HM HOTKEY",right=hotkeyText(get("quick_hm_hotkey")),value="quick_hm_hotkey"}
@@ -1206,6 +1239,24 @@ return function(mod)
     end
   end)
 
+  mod.events:on("pokemon.caught",function(ev)
+    if not get("max_dv") or not ev or type(ev.mon)~="table" then return end
+    local mon,game=ev.mon,ev.game
+    local data=game and game.data
+    local def=data and data.pokemon and data.pokemon[mon.species]
+    if not def then return end
+    local oldHp=tonumber(mon.hp)
+    local oldMax=mon.stats and tonumber(mon.stats.hp)
+    mon.dvs={hp=15,attack=15,defense=15,speed=15,special=15}
+    local Stats=require("src.pokemon.Stats")
+    mon.stats=Stats.calc(def,mon.level or 1,mon.dvs,mon.statExp)
+    local newMax=mon.stats and tonumber(mon.stats.hp)
+    if oldHp and oldMax and oldMax>0 and newMax then
+      if oldHp<=0 then mon.hp=0
+      else mon.hp=math.max(1,math.min(newMax,math.floor(oldHp*newMax/oldMax+0.5))) end
+    end
+  end)
+
   -- SMART may provide an exact per-mon award.  The optional cheat multiplier
   -- is applied once to that amount or to the engine's normal calculated gain.
   -- Experience.apply still owns stats, levels, move learning and battle text.
@@ -1306,6 +1357,17 @@ return function(mod)
     end
   end
 
+  local function topUpFullStatExp(mon,enemyDef,split)
+    if not (mon and enemyDef and enemyDef.baseStats) then return end
+    mon.statExp=mon.statExp or {}
+    local divisor=math.max(1,math.floor(tonumber(split) or 1))
+    for _,key in ipairs({"hp","attack","defense","speed","special"}) do
+      local full=math.max(0,math.floor(tonumber(enemyDef.baseStats[key]) or 0))
+      local native=math.floor(full/divisor)
+      mon.statExp[key]=math.min(65535,(tonumber(mon.statExp[key]) or 0)+full-native)
+    end
+  end
+
   mod.hooks:wrap("battle.exp_award", function(next, ctx)
     local mode=get("exp_share")
     if mode=="OFF" or not ctx or not ctx.battle then return next(ctx) end
@@ -1317,13 +1379,22 @@ return function(mod)
     -- ctx.alive/ctx.participants.  Only party members outside that set receive
     -- the shared half.  If nobody else is eligible, retain the native full
     -- participant award instead of discarding half of the experience.
-    local others=eligibleNonParticipants(battle,participantSet)
-    if #others==0 then return next(ctx) end
-
     local Experience=require("src.battle.Experience")
     local enemy=battle.enemy and battle.enemy.mon
     local enemyDef=battle.enemy and battle.enemy.def
     local isTrainer=battle.kind=="trainer"
+    local others=eligibleNonParticipants(battle,participantSet)
+    if #others==0 then
+      local split=math.max(1,tonumber(ctx.participants) or #ctx.alive)
+      for _,mon in ipairs(ctx.alive or {}) do
+        if (mon.level or 0)<100 then
+          topUpFullStatExp(mon,enemyDef,split)
+          ctx.applyShare(mon,split,true)
+        end
+      end
+      return
+    end
+
     local sharedAllocation=nil
     local participantRemainder=0
     if enemy and enemyDef then
@@ -1357,6 +1428,7 @@ return function(mod)
             participantSplit,isTradedMon(battle,mon),battle.data.constants)
           forcedExp[mon]=base+participantRemainder
         end
+        topUpFullStatExp(mon,enemyDef,participantSplit)
         ctx.applyShare(mon,participantSplit,true)
         forcedExp[mon]=nil
       end
@@ -1373,6 +1445,7 @@ return function(mod)
         if amount>0 then
           local before=tonumber(mon.exp) or 0
           forcedExp[mon]=amount
+          topUpFullStatExp(mon,enemyDef,split)
           ctx.applyShare(mon,split,nil)
           forcedExp[mon]=nil
           local gained=math.max(0,(tonumber(mon.exp) or before)-before)
@@ -1393,6 +1466,7 @@ return function(mod)
       if amount>0 then
         local before=tonumber(mon.exp) or 0
         forcedExp[mon]=amount
+        topUpFullStatExp(mon,enemyDef,statSplit)
         ctx.applyShare(mon,statSplit,nil)
         forcedExp[mon]=nil
         local gained=math.max(0,(tonumber(mon.exp) or before)-before)
