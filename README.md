@@ -2,9 +2,9 @@
 
 myQualityOfLife is a configurable quality-of-life mod pack for Pokemon Gen 1 and the experimental Pokemon Gold support in Gen1Recomp. Every feature can be toggled on or off, so you are free to customize the experience however you prefer.
 
-Current release: **1.3.0-beta.50** (requires Gen1Recomp 0.1.86 or newer)
+Current release: **1.3.0-beta.57** (requires Gen1Recomp 0.1.86 or newer)
 
-All myQualityOfLife menus use continuous vertical navigation: pressing Up on the first row selects the last row, and pressing Down on the last row returns to the first. Settings can be changed with either Left/Right or the confirm button. In paginated lists, Left/Right remain reserved for changing pages.
+All myQualityOfLife menus use continuous vertical navigation: pressing Up on the first row selects the last row, and pressing Down on the last row returns to the first. Settings can be changed with either Left/Right or the confirm button. In paginated lists, Left/Right remain reserved for changing pages. Settings screens reuse Pokemon Gold's native OPTION template: a full-screen framed panel with up to six visible rows, each option name on one line and `: value` on the line immediately below. The main screen displays `myQualityOfLife` as its heading.
 
 Force Encounter is activated from its configured hotkey and only works on valid grass, water, or cave encounter terrain. With Wild Select OFF, it opens a compact picker containing every species available for that terrain. On water, the picker combines Surf encounters with the Old Rod, Good Rod, and Super Rod fishing lists for that map, removing duplicate species. Pokemon Gold combines morning, day, and night species on land. With Wild Select ON, the picker is skipped and the configured Pokemon is encountered immediately. Wild Select does not alter ordinary random encounters. Force Encounter ON uses an area level, while FIRST uses the lead Pokemon's level.
 
@@ -101,6 +101,12 @@ The Move Editor shows each selected move's type, PP, power, and accuracy. Left a
   Attack, Defense, Speed and Special DV. This also produces the maximum derived
   HP DV. Existing Pokemon, eggs and Pokemon received through trades or scripts
   are not changed.
+- **All Hold Effects - Amulet Coin** *(Pokemon Gold)*: if any Pokemon in the
+  party holds an Amulet Coin, its prize-money bonus applies to the whole battle
+  without requiring the holder to participate.
+- **All Hold Effects - Lucky Egg** *(Pokemon Gold)*: if any Pokemon in the party
+  holds a Lucky Egg, every party member that receives EXP gets the Lucky Egg
+  bonus. The actual holder is never boosted twice.
 - **Quick HM - Off**: disables Quick HM.
 - **Quick HM - On**: allows field moves without teaching them to a Pokemon, while still requiring the correct HM and badge. In Gen 1, Quick HM is accessed exclusively through its configured hotkey and is not added to the START menu.
 - **Quick HM - Ignore**: enables all five field HMs without requiring the HM item or badge.

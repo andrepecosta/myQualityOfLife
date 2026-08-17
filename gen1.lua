@@ -143,6 +143,11 @@ return function(mod)
     if raw then return "JOY "..raw end
     return names[button] or button:upper()
   end
+  local function hotkeyPair(key,pad)
+    local keyboard=hotkeyText(key)
+    local controller=gamepadText(pad)
+    return controller=="OFF" and keyboard or (keyboard.."/"..controller)
+  end
 
   local BLOCKED_HOTKEYS={
     up=true,down=true,left=true,right=true,w=true,a=true,s=true,d=true,
@@ -174,6 +179,60 @@ return function(mod)
     ["MOVE EDITOR"]=true,["REPLACE MOVE"]=true,["AUTO SORT"]=true,
     ["QUICK HM"]=true,
   }
+  local TWO_LINE_TITLES={
+    ["MISC"]=true,["BATTLE OPTIONS"]=true,["POKEMON OPTIONS"]=true,
+    ["CHEATS"]=true,["QUICK HM HOTKEY"]=true,["ENCOUNTER HOTKEY"]=true,
+  }
+  local function twoLineValues(menu)
+    local Font=require("src.render.Font")
+    menu.rows=6
+    menu.draw=function(self)
+      love.graphics.setColor(1,1,1,1)
+      love.graphics.rectangle("fill",0,0,160,144)
+      love.graphics.setColor(0,0,0,1)
+      Font.drawBox(0,0,20,18)
+      for slot=1,self.rows do
+        local index=self.scroll+slot
+        local item=self.items[index]
+        if not item then break end
+        local labelY=2+(slot-1)*2
+        Font.draw(item.label,2*8,labelY*8)
+        if item.right~=nil then
+          local value=tostring(item.right)
+          Font.draw(":",10*8,(labelY+1)*8)
+          Font.draw(value,11*8,(labelY+1)*8)
+        end
+        if index==self.index then Font.drawCode(0xED,1*8,labelY*8) end
+      end
+      if self.scroll+self.rows<#self.items then
+        Font.drawCode(0xEE,1*8,13*8)
+      end
+      love.graphics.setColor(1,1,1,1)
+    end
+    return menu
+  end
+  local function mainMenuLayout(menu)
+    local Font=require("src.render.Font")
+    menu.rows=6
+    menu.draw=function(self)
+      love.graphics.setColor(1,1,1,1)
+      love.graphics.rectangle("fill",0,0,160,144)
+      love.graphics.setColor(0,0,0,1)
+      Font.drawBox(0,0,20,18)
+      Font.draw("myQualityOfLife",2*8,2*8)
+      for slot=1,self.rows do
+        local index=self.scroll+slot
+        local item=self.items[index]
+        if not item then break end
+        local y=4+(slot-1)*2
+        Font.draw(item.label,2*8,y*8)
+        if index==self.index then Font.drawCode(0xED,1*8,y*8) end
+      end
+      if self.scroll+self.rows<#self.items then Font.drawCode(0xEE,1*8,15*8) end
+      love.graphics.setColor(1,1,1,1)
+    end
+    return menu
+  end
   local rawListMenuNew=mod.ui.ListMenu.new
   mod.ui.ListMenu.new=function(game,title,items,opts)
     local menu=rawListMenuNew(game,title,items,opts)
@@ -205,6 +264,8 @@ return function(mod)
       end
       return oldUpdate(self,dt)
     end
+    if tostring(title)=="MOD OPTIONS" then mainMenuLayout(menu)
+    elseif TWO_LINE_TITLES[tostring(title)] then twoLineValues(menu) end
     return menu
   end
 
@@ -516,7 +577,7 @@ return function(mod)
         {label="MAX DV", right=boolText(get("max_dv")), value="max_dv"},
       }
       if get("quick_hm")~="OFF" then
-        items[#items+1]={label="HM HOTKEY",right=hotkeyText(get("quick_hm_hotkey")),value="quick_hm_hotkey"}
+        items[#items+1]={label="HM HOTKEY",right=hotkeyPair(get("quick_hm_hotkey"),get("quick_hm_gamepad")),value="quick_hm_hotkey"}
       end
       items[#items+1]={label="PIKACHU EVO", right=boolText(get("pikachu_evo")), value="pikachu_evo"}
       items[#items+1]={label="RESET DEFAULTS", value="reset"}
@@ -636,7 +697,7 @@ return function(mod)
         {label="FORCE ENCOUNTER", right=tostring(get("force_encounter")), value="force_encounter"},
       }
       if get("force_encounter")~="OFF" then
-        items[#items+1]={label="ENCOUNTER HOTKEY",right=hotkeyText(get("encounter_hotkey")),value="encounter_hotkey"}
+        items[#items+1]={label="ENCOUNTER HOTKEY",right=hotkeyPair(get("encounter_hotkey"),get("encounter_gamepad")),value="encounter_hotkey"}
       end
       items[#items+1]={label="WILD SELECT",right=tostring(get("wild_select")),value="wild_select"}
       if get("wild_select")~="OFF" then
@@ -765,11 +826,21 @@ return function(mod)
   mod.hooks:wrap("ui.options.rows", function(next,game,rows)
     local out=next(game,rows)
     if type(out)~="table" then return out end
-    out[#out+1]={
+    local entry={
       id="my_quality_of_life",
       label="myQualityOfLife",
+      value=function() return "OPEN" end,
       activate=function(g) mod.ui.push(g,MAIN_SCREEN) end,
     }
+    local inserted=false
+    for index,row in ipairs(out) do
+      if row and row.cancel then
+        table.insert(out,index,entry)
+        inserted=true
+        break
+      end
+    end
+    if not inserted then out[#out+1]=entry end
     return out
   end)
 

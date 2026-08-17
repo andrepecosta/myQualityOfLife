@@ -7,6 +7,7 @@ return function(mod)
   local POKEMON = "MQOL2Pokemon"
   local MISC = "MQOL2Misc"
   local CHEATS = "MQOL2Cheats"
+  local HOLD_EFFECTS = "MQOL2HoldEffects"
   local QUICK_HM = "MQOL2QuickHM"
   local HOTKEY = "MQOL2Hotkey"
   local KEY_CAPTURE = "MQOL2KeyCapture"
@@ -27,6 +28,7 @@ return function(mod)
     itemfinder = "OFF", fast_center = false, fast_save = false,
     bag_sort = "OFF", exp_share = "OFF", move_info = false,
     forget_hm = false, unlimited_tm = false, quick_hm = "OFF", max_dv = false,
+    all_amulet_coin = false, all_lucky_egg = false,
     quick_hm_hotkey = "shift", quick_hm_gamepad = "OFF",
     never_miss = false, always_crit = false, infinite_pp = false,
     always_catch = false, exp_multiplier = "OFF", game_corner_multiplier = "OFF",
@@ -38,6 +40,7 @@ return function(mod)
     "fast_center", "fast_save", "bag_sort" }
   local BATTLE_KEYS = { "exp_share", "move_info" }
   local POKEMON_KEYS = { "forget_hm", "unlimited_tm", "quick_hm", "max_dv",
+    "all_amulet_coin", "all_lucky_egg",
     "quick_hm_hotkey", "quick_hm_gamepad" }
   local CHEAT_KEYS = { "never_miss", "always_crit", "infinite_pp",
     "always_catch", "exp_multiplier", "game_corner_multiplier", "challenge_mode", "move_editor", "force_encounter",
@@ -154,6 +157,11 @@ return function(mod)
     names["axis:triggerright"] = "R2"
     return names[button] or button:upper()
   end
+  local function hotkeyPair(key,pad)
+    local keyboard=hotkeyText(key)
+    local controller=gamepadText(pad)
+    return controller=="OFF" and keyboard or (keyboard.."/"..controller)
+  end
 
   local SIDE_OPTION_KEYS={}
   for _,keys in ipairs({MISC_KEYS,BATTLE_KEYS,POKEMON_KEYS,CHEAT_KEYS}) do
@@ -171,8 +179,64 @@ return function(mod)
     ["ENCOUNTER HOTKEY"]=true,["KEYBOARD HOTKEY"]=true,
     ["CONTROLLER HOTKEY"]=true,["WILD POKEMON"]=true,
     ["MOVE EDITOR"]=true,["REPLACE MOVE"]=true,["AUTO SORT"]=true,
-    ["QUICK HM"]=true,
+    ["QUICK HM"]=true,["ALL HOLD EFFECTS"]=true,
   }
+  local TWO_LINE_TITLES={
+    ["MISC - GOLD BETA"]=true,["BATTLE - GOLD BETA"]=true,
+    ["POKEMON - GOLD BETA"]=true,["CHEATS - GOLD BETA"]=true,
+    ["QUICK HM HOTKEY"]=true,["ENCOUNTER HOTKEY"]=true,
+    ["ALL HOLD EFFECTS"]=true,
+  }
+  local function twoLineValues(menu)
+    local Font=require("src.render.Font")
+    menu.rows=6
+    menu.draw=function(self)
+      love.graphics.setColor(1,1,1,1)
+      love.graphics.rectangle("fill",0,0,160,144)
+      love.graphics.setColor(0,0,0,1)
+      Font.drawBox(0,0,20,18)
+      for slot=1,self.rows do
+        local index=self.scroll+slot
+        local item=self.items[index]
+        if not item then break end
+        local labelY=2+(slot-1)*2
+        Font.draw(item.label,2*8,labelY*8)
+        if item.right~=nil then
+          local value=tostring(item.right)
+          Font.draw(":",10*8,(labelY+1)*8)
+          Font.draw(value,11*8,(labelY+1)*8)
+        end
+        if index==self.index then Font.drawCode(0xED,1*8,labelY*8) end
+      end
+      if self.scroll+self.rows<#self.items then
+        Font.drawCode(0xEE,1*8,13*8)
+      end
+      love.graphics.setColor(1,1,1,1)
+    end
+    return menu
+  end
+  local function mainMenuLayout(menu)
+    local Font=require("src.render.Font")
+    menu.rows=6
+    menu.draw=function(self)
+      love.graphics.setColor(1,1,1,1)
+      love.graphics.rectangle("fill",0,0,160,144)
+      love.graphics.setColor(0,0,0,1)
+      Font.drawBox(0,0,20,18)
+      Font.draw("myQualityOfLife",2*8,2*8)
+      for slot=1,self.rows do
+        local index=self.scroll+slot
+        local item=self.items[index]
+        if not item then break end
+        local y=4+(slot-1)*2
+        Font.draw(item.label,2*8,y*8)
+        if index==self.index then Font.drawCode(0xED,1*8,y*8) end
+      end
+      if self.scroll+self.rows<#self.items then Font.drawCode(0xEE,1*8,15*8) end
+      love.graphics.setColor(1,1,1,1)
+    end
+    return menu
+  end
   local rawListMenuNew=mod.ui.ListMenu.new
   mod.ui.ListMenu.new=function(game,title,items,opts)
     local menu=rawListMenuNew(game,title,items,opts)
@@ -204,6 +268,8 @@ return function(mod)
       end
       return oldUpdate(self,dt)
     end
+    if text=="MOD OPTIONS" then mainMenuLayout(menu)
+    elseif TWO_LINE_TITLES[text] then twoLineValues(menu) end
     return menu
   end
 
@@ -275,15 +341,17 @@ return function(mod)
       {label="FORGET HM", right=boolText(get("forget_hm")), value="forget_hm"},
       {label="REUSABLE TMS", right=boolText(get("unlimited_tm")), value="unlimited_tm"},
       {label="QUICK HM", right=get("quick_hm"), value="quick_hm"},
-      {label="MAX DV", right=boolText(get("max_dv")), value="max_dv"},
     }
     if get("quick_hm") ~= "OFF" then
-      items[#items+1] = {label="HM HOTKEY", right=hotkeyText(get("quick_hm_hotkey")), value="hotkey"}
+      items[#items+1] = {label="HM HOTKEY", right=hotkeyPair(get("quick_hm_hotkey"),get("quick_hm_gamepad")), value="hotkey"}
     end
+    items[#items+1] = {label="MAX DV", right=boolText(get("max_dv")), value="max_dv"}
+    items[#items+1] = {label="ALL HOLD EFFECTS", value="hold_effects"}
     items[#items+1] = {label="RESET DEFAULTS", value="reset"}
     local menu
     menu = mod.ui.ListMenu.new(game, "POKEMON - GOLD BETA", items, { onChoose=function(item)
-      if item.value == "quick_hm" then cycle(game, "quick_hm", {"OFF","ON","IGNORE"})
+      if item.value == "hold_effects" then mod.ui.push(game, HOLD_EFFECTS); return
+      elseif item.value == "quick_hm" then cycle(game, "quick_hm", {"OFF","ON","IGNORE"})
       elseif item.value == "hotkey" then mod.ui.push(game, HOTKEY); return
       elseif item.value == "reset" then return confirm(game, "Reset POKEMON options\nto defaults?", function()
         resetKeys(game, POKEMON_KEYS); syncForgetHM(); refresh(menu, game, POKEMON)
@@ -294,6 +362,24 @@ return function(mod)
       refresh(menu, game, POKEMON)
     end })
     return restoreCursor(POKEMON, menu)
+  end })
+
+  mod.content.screens:register(HOLD_EFFECTS, { new=function(game)
+    local menu
+    menu = mod.ui.ListMenu.new(game, "ALL HOLD EFFECTS", {
+      {label="AMULET COIN",right=boolText(get("all_amulet_coin")),value="all_amulet_coin"},
+      {label="LUCKY EGG",right=boolText(get("all_lucky_egg")),value="all_lucky_egg"},
+      {label="RESET DEFAULTS",value="reset"},
+    }, { onChoose=function(item)
+      if item.value=="reset" then return confirm(game,"Reset HOLD EFFECTS\nto defaults?",function()
+        set(game,"all_amulet_coin",DEFAULTS.all_amulet_coin)
+        set(game,"all_lucky_egg",DEFAULTS.all_lucky_egg)
+        refresh(menu,game,HOLD_EFFECTS)
+      end) end
+      toggle(game,item.value)
+      refresh(menu,game,HOLD_EFFECTS)
+    end })
+    return restoreCursor(HOLD_EFFECTS,menu)
   end })
 
   mod.content.screens:register(CHEATS, { new=function(game)
@@ -310,7 +396,7 @@ return function(mod)
       {label="FORCE ENCOUNTER", right=tostring(get("force_encounter")), value="force_encounter"},
     }
     if get("force_encounter")~="OFF" then
-      items[#items+1]={label="ENCOUNTER HOTKEY",right=hotkeyText(get("encounter_hotkey")),value="encounter_hotkey"}
+      items[#items+1]={label="ENCOUNTER HOTKEY",right=hotkeyPair(get("encounter_hotkey"),get("encounter_gamepad")),value="encounter_hotkey"}
     end
     items[#items+1]={label="WILD SELECT",right=tostring(get("wild_select")),value="wild_select"}
     if get("wild_select")~="OFF" then
@@ -575,10 +661,22 @@ return function(mod)
   -- Native options owns the entry point, keeping the START menu uncluttered.
   mod.hooks:wrap("ui.options.rows", function(next, game, rows)
     local out = next(game, rows)
-    if type(out) == "table" then out[#out+1] = {
+    if type(out) == "table" then
+      local entry = {
       id="my_quality_of_life", label="myQualityOfLife",
+      value=function() return "OPEN" end,
       activate=function(g) mod.ui.push(g, MAIN) end,
-    } end
+      }
+      local inserted=false
+      for index,row in ipairs(out) do
+        if row and row.cancel then
+          table.insert(out,index,entry)
+          inserted=true
+          break
+        end
+      end
+      if not inserted then out[#out+1]=entry end
+    end
     return out
   end)
 
@@ -610,8 +708,30 @@ return function(mod)
     if get("always_catch") then return true, 3 end
     return next(ball, mon, def, opts)
   end)
+  local function partyHasHeldItem(battle,itemId)
+    local party=(battle and battle.party)
+      or (battle and battle.save and battle.save.party)
+      or (activeGame and activeGame.save and activeGame.save.party) or {}
+    for _,mon in ipairs(party) do
+      if type(mon)=="table" and mon.item==itemId then return true end
+    end
+    return false
+  end
+  mod.events:on("battle.started",function(ev)
+    local battle=ev and ev.battle
+    if get("all_amulet_coin") and battle
+        and partyHasHeldItem(battle,"AMULET_COIN") then
+      -- Gold normally latches this only after the holder enters battle. The
+      -- option intentionally treats a holder anywhere in the party as active.
+      battle.amuletCoin=true
+    end
+  end)
   mod.hooks:wrap("exp.gain", function(next, ctx)
     local amount = next(ctx)
+    if get("all_lucky_egg") and ctx and ctx.battle and not ctx.luckyEgg
+        and partyHasHeldItem(ctx.battle,"LUCKY_EGG") then
+      amount=math.floor((tonumber(amount) or 0)*3/2)
+    end
     local multiplier = tonumber(tostring(get("exp_multiplier")):match("^(%d+%.?%d*)X$")) or 1
     return math.max(0, math.floor((tonumber(amount) or 0) * multiplier))
   end)
